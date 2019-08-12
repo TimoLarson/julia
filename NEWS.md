@@ -100,6 +100,7 @@ Deprecated or removed
 ---------------------
 
 * `@spawn expr` from the `Distributed` standard library should be replaced with `@spawnat :any expr` ([#32600]).
+* `Threads.Mutex` has been removed; use `ReentrantLock` (preferred) or `Threads.SpinLock` instead.
 
 External dependencies
 ---------------------
