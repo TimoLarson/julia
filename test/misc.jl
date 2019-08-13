@@ -183,7 +183,7 @@ let R = Ref{Any}(nothing), depth = 10^6
         R = Ref{Any}(R)
     end
     R = Core.svec(R, R)
-    @test summarysize(R) == (depth + 4) * sizeof(Ptr)
+    @test summarysize(R) == (2*(depth+1) + 4) * sizeof(Ptr)
 end
 
 # issue #25367 - summarysize with reshaped arrays
@@ -193,6 +193,16 @@ let A = zeros(1000), B = reshape(A, (1,1000))
     # check that object header is accounted for
     @test summarysize(A) > sizeof(A)
 end
+
+# issue #32881
+mutable struct S32881; end
+let s = "abc"
+    @test summarysize([s,s]) < summarysize(["abc","xyz"])
+    @test summarysize("a") > sizeof(Int)+1
+end
+@test summarysize(Vector{Union{Nothing,Missing}}(undef, 16)) < summarysize(Vector{Union{Nothing,Missing}}(undef, 32))
+@test summarysize(Vector{Nothing}(undef, 16)) == summarysize(Vector{Nothing}(undef, 32))
+@test summarysize(S32881()) == sizeof(Int)
 
 # issue #13021
 let ex = try

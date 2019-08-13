@@ -74,14 +74,29 @@ end
     end
     if isa(obj, UnionAll) || isa(obj, Union)
         # black-list of items that don't have a Core.sizeof
-        return 2 * sizeof(Int)
+        sz = 2 * sizeof(Int)
+    else
+        sz = Core.sizeof(obj)
     end
-    return Core.sizeof(obj)
+    if sz == 0
+        # 0-field mutable structs are not unique
+        return gc_alignment(0)
+    end
+    sz += sizeof(Int) # type tag
+    al = gc_alignment(sz)
+    return (sz + al - 1) & -al
 end
 
 (::SummarySize)(obj::Symbol) = 0
 (::SummarySize)(obj::SummarySize) = 0
-(::SummarySize)(obj::String) = Core.sizeof(Int) + Core.sizeof(obj)
+
+function (ss::SummarySize)(obj::String)
+    key = ccall(:jl_value_ptr, Ptr{Cvoid}, (Any,), obj)
+    haskey(ss.seen, key) ? (return 0) : (ss.seen[key] = true)
+    sz = 2*Core.sizeof(Int) + Core.sizeof(obj)
+    al = gc_alignment(sz)
+    return (sz + al - 1) & -al
+end
 
 function (ss::SummarySize)(obj::DataType)
     key = pointer_from_objref(obj)
@@ -103,12 +118,20 @@ end
 
 function (ss::SummarySize)(obj::Array)
     haskey(ss.seen, obj) ? (return 0) : (ss.seen[obj] = true)
-    headersize = 4*sizeof(Int) + 8 + max(0, ndims(obj)-2)*sizeof(Int)
+    headersize = 5*sizeof(Int) + 8 + max(0, ndims(obj)-2)*sizeof(Int)
+    headersize = (headersize + 64 - 1) & -64
     size::Int = headersize
     datakey = unsafe_convert(Ptr{Cvoid}, obj)
     if !haskey(ss.seen, datakey)
         ss.seen[datakey] = true
-        size += Core.sizeof(obj)
+        dsize = Core.sizeof(obj)
+        if isbitsunion(eltype(obj))
+            # add 1 union selector byte for each element
+            dsize += length(obj)
+        end
+        al = gc_alignment(dsize)
+        dsize = (dsize + al - 1) & -al
+        size += dsize
         if !isbitstype(eltype(obj)) && !isempty(obj)
             push!(ss.frontier_x, obj)
             push!(ss.frontier_i, 1)
@@ -120,7 +143,9 @@ end
 function (ss::SummarySize)(obj::SimpleVector)
     key = pointer_from_objref(obj)
     haskey(ss.seen, key) ? (return 0) : (ss.seen[key] = true)
-    size::Int = Core.sizeof(obj)
+    size::Int = sizeof(Int) + Core.sizeof(obj)
+    al = gc_alignment(size)
+    size = (size + al - 1) & -al
     if !isempty(obj)
         push!(ss.frontier_x, obj)
         push!(ss.frontier_i, 1)
