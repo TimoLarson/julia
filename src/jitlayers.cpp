@@ -765,12 +765,18 @@ void jl_finalize_function(StringRef F)
     std::unique_ptr<Module> m(module_for_fname.lookup(F));
     if (m) {
         jl_merge_recursive(m.get(), m.get());
+        //jl_safe_printf("jl_finalize_function(StringRef F)\n");
+        if (umbra_mode) {
+            //jl_safe_printf("add to umbra\n");
+            //jl_add_to_umbra(m.get());
+        }
         jl_add_to_ee(std::move(m));
     }
 }
 
 static void jl_finalize_function(const std::string &F, Module *collector)
 {
+    //jl_safe_printf("jl_finalize_function(2 params)\n");
     std::unique_ptr<Module> m(module_for_fname.lookup(F));
     if (m) {
         jl_merge_recursive(m.get(), collector);
@@ -952,6 +958,29 @@ void jl_add_to_shadow(Module *m)
         }
     }
     jl_merge_module(shadow_output, std::move(clone));
+}
+
+// clones the contents of the module `m` to the umbra_output collector
+void jl_add_to_umbra(Module *m)
+{
+#ifndef KEEP_BODIES
+    if (!umbra_mode)
+        return;
+#endif
+    ValueToValueMapTy VMap;
+#if JL_LLVM_VERSION >= 70000
+    std::unique_ptr<Module> clone(CloneModule(*m, VMap));
+#else
+    std::unique_ptr<Module> clone(CloneModule(m, VMap));
+#endif
+    for (Module::iterator I = clone->begin(), E = clone->end(); I != E; ++I) {
+        Function *F = &*I;
+        if (!F->isDeclaration()) {
+            F->setLinkage(Function::InternalLinkage);
+            addComdat(F);
+        }
+    }
+    jl_merge_module(umbra_output, std::move(clone));
 }
 
 static void emit_offset_table(Module *mod, const std::vector<GlobalValue*> &vars, StringRef name)

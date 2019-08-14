@@ -2764,7 +2764,6 @@ JL_DLLEXPORT jl_value_t *jl_uncompress_argname_n(jl_value_t *syms, size_t i)
     return jl_nothing;
 }
 
-
 JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
 {
     JL_TIMING(SAVE_MODULE);
@@ -2820,6 +2819,8 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
     jl_collect_missing_backedges_to_mod(jl_nonfunction_mt);
 
     jl_collect_backedges(edges);
+
+    //jl_save_umbra();
 
     jl_serializer_state s = {
         &f, MODE_MODULE,

@@ -68,6 +68,7 @@ jl_options_t jl_options = { 0,    // quiet
                             NULL, // output-unopt-bc
                             NULL, // output-jit-bc
                             NULL, // output-o
+                            NULL, // output-so
                             NULL, // output-ji
                             NULL,    // output-code_coverage
                             0, // incremental
@@ -143,6 +144,7 @@ static const char opts_hidden[]  =
 
     // compiler output options
     " --output-o name           Generate an object file (including system image data)\n"
+    " --output-so name          Generate a shared object (shared library for a package)\n"
     " --output-ji name          Generate a system image data file (.ji)\n"
 
     // compiler debugging (see the devdocs for tips on using these options)
@@ -175,6 +177,7 @@ JL_DLLEXPORT void jl_parse_opts(int *argcp, char ***argvp)
            opt_bind_to,
            opt_handle_signals,
            opt_output_o,
+           opt_output_so,
            opt_output_ji,
            opt_use_precompiled,
            opt_use_compilecache,
@@ -219,6 +222,7 @@ JL_DLLEXPORT void jl_parse_opts(int *argcp, char ***argvp)
         { "output-unopt-bc", required_argument, 0, opt_output_unopt_bc },
         { "output-jit-bc",   required_argument, 0, opt_output_jit_bc },
         { "output-o",        required_argument, 0, opt_output_o },
+        { "output-so",       required_argument, 0, opt_output_so },
         { "output-ji",       required_argument, 0, opt_output_ji },
         { "output-incremental",required_argument, 0, opt_incremental },
         { "depwarn",         required_argument, 0, opt_depwarn },
@@ -528,6 +532,10 @@ restart_switch:
             break;
         case opt_output_o:
             jl_options.outputo = optarg;
+            if (!jl_options.image_file_specified) jl_options.image_file = NULL;
+            break;
+        case opt_output_so:
+            jl_options.outputso = optarg;
             if (!jl_options.image_file_specified) jl_options.image_file = NULL;
             break;
         case opt_output_ji:

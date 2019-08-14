@@ -618,6 +618,8 @@ static void jl_resolve_sysimg_location(JL_IMAGE_SEARCH rel)
     }
     if (jl_options.outputo)
         jl_options.outputo = abspath(jl_options.outputo, 0);
+    if (jl_options.outputso)
+        jl_options.outputso = abspath(jl_options.outputso, 0);
     if (jl_options.outputji)
         jl_options.outputji = abspath(jl_options.outputji, 0);
     if (jl_options.outputbc)
@@ -731,7 +733,7 @@ void _julia_init(JL_IMAGE_SEARCH rel)
     }
 #endif
 
-    if ((jl_options.outputo || jl_options.outputbc) &&
+    if ((jl_options.outputo || jl_options.outputso || jl_options.outputbc) &&
         (jl_options.code_coverage || jl_options.malloc_log)) {
         jl_error("cannot generate code-coverage or track allocation information while generating a .o or .bc output file");
     }
