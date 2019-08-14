@@ -1870,6 +1870,7 @@ typedef struct {
     const char *outputunoptbc;
     const char *outputjitbc;
     const char *outputo;
+    const char *outputso;
     const char *outputji;
     const char *output_code_coverage;
     int8_t incremental;

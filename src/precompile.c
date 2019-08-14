@@ -17,7 +17,7 @@ extern "C" {
 
 JL_DLLEXPORT int jl_generating_output(void)
 {
-    return jl_options.outputo || jl_options.outputbc || jl_options.outputunoptbc || jl_options.outputji;
+    return jl_options.outputo || jl_options.outputso || jl_options.outputbc || jl_options.outputunoptbc || jl_options.outputji;
 }
 
 void jl_precompile(int all);
