@@ -24,6 +24,7 @@ void jl_precompile(int all);
 
 void jl_write_compiler_output(void)
 {
+    //jl_printf(JL_STDERR, "\nin jl_write_compiler_output\n");
     if (!jl_generating_output()) {
         if (jl_options.outputjitbc)
             jl_dump_native(NULL, jl_options.outputjitbc, NULL, NULL, 0);

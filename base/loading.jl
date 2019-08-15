@@ -1169,12 +1169,24 @@ function create_expr_cache(input::String, output::String, concrete_deps::typeof(
             eval(Meta.parse(code))
         end
         """
-    io = open(pipeline(`$(julia_cmd()) -O0
-                       --output-ji $output --output-incremental=yes
-                       --startup-file=no --history-file=no --warn-overwrite=yes
-                       --color=$(have_color ? "yes" : "no")
-                       --eval $code_object`, stderr=stderr),
-              "w", stdout)
+    println("create_expr_cache: $input $output")
+    if input == "Addone/src/Addone.jl"
+        outputso = "/home/query/pkg/src/puddle/output.so"
+        io = open(pipeline(`$(julia_cmd()) -O0
+                           --output-so $outputso
+                           --output-ji $output --output-incremental=yes
+                           --startup-file=no --history-file=no --warn-overwrite=yes
+                           --color=$(have_color ? "yes" : "no")
+                           --eval $code_object`, stderr=stderr),
+                  "w", stdout)
+    else
+        io = open(pipeline(`$(julia_cmd()) -O0
+                           --output-ji $output --output-incremental=yes
+                           --startup-file=no --history-file=no --warn-overwrite=yes
+                           --color=$(have_color ? "yes" : "no")
+                           --eval $code_object`, stderr=stderr),
+                  "w", stdout)
+    end
     in = io.in
     try
         write(in, """

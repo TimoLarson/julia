@@ -7813,7 +7813,7 @@ extern "C" int jl_save_umbra(void)
 {
     jl_printf(JL_STDERR, "Save umbra\n");
     char const* fname = "/home/query/pkg/src/puddle/umbra.bc";
-    jl_write_bitcode_module((void*)umbra_output, const_cast(char*>fname);
+    jl_write_bitcode_module((void*)umbra_output, const_cast<char*>(fname));
     return 0;
 }
 
