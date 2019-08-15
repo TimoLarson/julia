@@ -2024,6 +2024,9 @@ static void _generate_from_hint(jl_method_instance_t *mi, size_t world)
         // If we are saving LLVM or native code, generate the LLVM IR so that it'll
         // be included in the saved LLVM module.
         (void)jl_compile_linfo(mi, src, world, &jl_default_cgparams);
+
+        //jl_printf(JL_STDERR, "Compiled: ");
+        //jl_static_show(JL_STDERR, (jl_value_t*)mi);
     }
 }
 
@@ -2040,6 +2043,7 @@ void jl_compile_now(jl_method_instance_t *mi)
 
 JL_DLLEXPORT int jl_compile_hint(jl_tupletype_t *types)
 {
+    //jl_printf(JL_STDERR, "\nIn jl_compile_hint\n");
     size_t world = jl_world_counter;
     size_t tworld = jl_typeinf_world;
     size_t min_valid = 0;
