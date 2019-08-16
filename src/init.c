@@ -221,12 +221,14 @@ static void jl_close_item_atexit(uv_handle_t *handle)
 
 JL_DLLEXPORT void jl_atexit_hook(int exitcode)
 {
+    jl_printf(JL_STDERR, "\nIn jl_atexit_hook\n");
     if (jl_all_tls_states == NULL)
         return;
 
     jl_ptls_t ptls = jl_get_ptls_states();
 
     if (exitcode == 0) {
+        jl_printf(JL_STDERR, "\nCalling jl_write_compiler_output...\n");
         jl_write_compiler_output();
     }
     jl_print_gc_stats(JL_STDERR);

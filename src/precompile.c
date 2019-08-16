@@ -24,6 +24,9 @@ void jl_precompile(int all);
 
 void jl_write_compiler_output(void)
 {
+    if (jl_options.outputso)
+        jl_shadow_output_to_bc();
+
     //jl_printf(JL_STDERR, "\nin jl_write_compiler_output\n");
     if (!jl_generating_output()) {
         if (jl_options.outputjitbc)
@@ -63,6 +66,12 @@ void jl_write_compiler_output(void)
     }
 
     if (jl_options.incremental) {
+        if (jl_options.outputso){
+            jl_dump_native("/home/query/pkg/src/puddle/output.bc", // jl_options.outputbc,
+                           "/home/query/pkg/src/puddle/outputunopt.bc", // jl_options.outputunoptbc,
+                           NULL, // "/home/query/pkg/src/puddle/output.o", // jl_options.outputo,
+                           NULL, 0); // (const char*)s->buf, (size_t)s->size);
+        }
         if (jl_options.outputji)
             if (jl_save_incremental(jl_options.outputji, worklist))
                 jl_exit(1);

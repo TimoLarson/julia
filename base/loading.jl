@@ -1170,7 +1170,7 @@ function create_expr_cache(input::String, output::String, concrete_deps::typeof(
         end
         """
     println("create_expr_cache: $input $output")
-    if input == "Addone/src/Addone.jl"
+    if input == "/home/query/pkg/src/Addone/src/Addone.jl"
         outputso = "/home/query/pkg/src/puddle/output.so"
         io = open(pipeline(`$(julia_cmd()) -O0
                            --output-so $outputso

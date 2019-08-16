@@ -941,7 +941,7 @@ void* jl_get_globalvar(GlobalVariable *gv)
 void jl_add_to_shadow(Module *m)
 {
 #ifndef KEEP_BODIES
-    if (!imaging_mode && !jl_options.outputjitbc)
+    if (!imaging_mode && !jl_options.outputjitbc && !(jl_options.outputso && in_compile_hint > 0))
         return;
 #endif
     ValueToValueMapTy VMap;
@@ -1095,7 +1095,7 @@ void jl_dump_native(const char *bc_fname, const char *unopt_bc_fname, const char
     shadow_output->setDataLayout(DL);
 
     // add metadata information
-    if (imaging_mode) {
+    if (imaging_mode || jl_options.outputso) {
         emit_offset_table(shadow_output, jl_sysimg_gvars, "jl_sysimg_gvars");
         emit_offset_table(shadow_output, jl_sysimg_fvars, "jl_sysimg_fvars");
 

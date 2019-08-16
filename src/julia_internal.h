@@ -491,6 +491,7 @@ void _julia_init(JL_IMAGE_SEARCH rel);
 
 void jl_set_base_ctx(char *__stk);
 
+int jl_shadow_output_to_bc(void);
 int jl_save_umbra(void);
 
 extern ssize_t jl_tls_offset;

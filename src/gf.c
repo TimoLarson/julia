@@ -24,6 +24,8 @@
 extern "C" {
 #endif
 
+JL_DLLEXPORT size_t in_compile_hint = 0;
+
 JL_DLLEXPORT size_t jl_world_counter = 1;
 JL_DLLEXPORT size_t jl_get_world_counter(void)
 {
@@ -2025,8 +2027,11 @@ static void _generate_from_hint(jl_method_instance_t *mi, size_t world)
         // be included in the saved LLVM module.
         (void)jl_compile_linfo(mi, src, world, &jl_default_cgparams);
 
-        //jl_printf(JL_STDERR, "Compiled: ");
-        //jl_static_show(JL_STDERR, (jl_value_t*)mi);
+        if (jl_options.outputso) {
+            jl_printf(JL_STDERR, "Compiled: ");
+            jl_static_show(JL_STDERR, (jl_value_t*)mi);
+            jl_printf(JL_STDERR, "\n");
+        }
     }
 }
 
@@ -2043,6 +2048,7 @@ void jl_compile_now(jl_method_instance_t *mi)
 
 JL_DLLEXPORT int jl_compile_hint(jl_tupletype_t *types)
 {
+    in_compile_hint += 1;
     //jl_printf(JL_STDERR, "\nIn jl_compile_hint\n");
     size_t world = jl_world_counter;
     size_t tworld = jl_typeinf_world;
@@ -2080,6 +2086,7 @@ JL_DLLEXPORT int jl_compile_hint(jl_tupletype_t *types)
         (void)jl_compile_method_internal(mi, world);
     }
     return 1;
+    in_compile_hint -= 1;
 }
 
 #ifndef NDEBUG
