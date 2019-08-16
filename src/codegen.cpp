@@ -1228,6 +1228,11 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             }
 
             // Step 5. Add the result to the execution engine now
+            if (jl_options.outputso) {
+                jl_printf(JL_STDERR, "toplevel = %d\n", toplevel);
+                jl_printf(JL_STDERR, "shadow = %d\n", !toplevel);
+            }
+
             jl_finalize_module(m.release(), !toplevel);
         }
 
@@ -7806,6 +7811,14 @@ extern void jl_write_bitcode_module(void *M, char *fname) {
 #else
     llvm::WriteBitcodeToFile((llvm::Module*)M, OS);
 #endif
+}
+
+// For saving shared object related data
+extern "C" int jl_shadow_output_to_bc(void)
+{
+    char const* fname = "/home/query/pkg/src/puddle/shadow.bc";
+    jl_write_bitcode_module((void*)shadow_output, const_cast<char*>(fname));
+    return 0;
 }
 
 // For saving shared object related data
