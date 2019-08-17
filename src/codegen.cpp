@@ -153,11 +153,7 @@ extern JITEventListener *CreateJuliaJITEventListener();
 // for image reloading
 bool imaging_mode = false;
 
-// for generating shared objects
-bool umbra_mode = false;
-
 Module *shadow_output;
-Module *umbra_output;
 #define jl_Module ctx.f->getParent()
 #define jl_builderModule(builder) (builder).GetInsertBlock()->getParent()->getParent()
 
@@ -7619,7 +7615,6 @@ extern "C" void *jl_init_llvm(void)
 
     jl_page_size = jl_getpagesize();
     imaging_mode = jl_generating_output() && !jl_options.incremental;
-    umbra_mode = jl_options.outputso && jl_options.incremental;
     jl_default_cgparams.module_setup = jl_nothing;
     jl_default_cgparams.module_activation = jl_nothing;
     jl_default_cgparams.raise_exception = jl_nothing;
@@ -7642,7 +7637,6 @@ extern "C" void *jl_init_llvm(void)
     engine_module = new Module("julia", jl_LLVMContext);
     m = new Module("julia", jl_LLVMContext);
     shadow_output = m;
-    umbra_output = new Module("umbra", jl_LLVMContext);
 
     TargetOptions options = TargetOptions();
     //options.PrintMachineCode = true; //Print machine code produced during JIT compiling
@@ -7814,13 +7808,3 @@ extern "C" int jl_shadow_output_to_bc(void)
     jl_write_bitcode_module((void*)shadow_output, const_cast<char*>(fname));
     return 0;
 }
-
-// For saving shared object related data
-extern "C" int jl_save_umbra(void)
-{
-    jl_printf(JL_STDERR, "Save umbra\n");
-    char const* fname = "/home/tim/pkg/src/puddle/umbra.bc";
-    jl_write_bitcode_module((void*)umbra_output, const_cast<char*>(fname));
-    return 0;
-}
-
