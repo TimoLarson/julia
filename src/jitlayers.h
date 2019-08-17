@@ -28,10 +28,8 @@ extern "C" {
 }
 extern TargetMachine *jl_TargetMachine;
 extern Module *shadow_output;
-extern Module *umbra_output;
 extern bool imaging_mode;
 extern size_t in_compile_hint;
-extern bool umbra_mode;
 #if defined(_OS_WINDOWS_) && defined(_CPU_X86_64_)
 extern Function *juliapersonality_func;
 #endif
@@ -45,7 +43,6 @@ void** jl_emit_and_add_to_shadow(GlobalVariable *gv, void *gvarinit = NULL);
 void* jl_get_globalvar(GlobalVariable *gv);
 GlobalVariable *jl_get_global_for(const char *cname, void *addr, Module *M);
 void jl_add_to_shadow(Module *m);
-void jl_add_to_umbra(Module *m);
 void jl_init_function(Function *f);
 bool jl_can_finalize_function(StringRef F);
 void jl_finalize_function(StringRef F);

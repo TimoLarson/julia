@@ -2820,8 +2820,6 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
 
     jl_collect_backedges(edges);
 
-    //jl_save_umbra();
-
     jl_serializer_state s = {
         &f, MODE_MODULE,
         NULL,
