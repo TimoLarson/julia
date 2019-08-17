@@ -456,7 +456,6 @@ sizeof(x) = Core.sizeof(x)
 Compile the given function `f` for the argument tuple (of types) `args`, but do not execute it.
 """
 function precompile(@nospecialize(f), args::Tuple)
-    println("Calling jl_compile_hint")
     ccall(:jl_compile_hint, Int32, (Any,), Tuple{Core.Typeof(f), args...}) != 0
 end
 

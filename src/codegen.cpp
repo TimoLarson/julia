@@ -1228,11 +1228,6 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             }
 
             // Step 5. Add the result to the execution engine now
-            if (jl_options.outputso) {
-                jl_printf(JL_STDERR, "toplevel = %d\n", toplevel);
-                jl_printf(JL_STDERR, "shadow = %d\n", !toplevel);
-            }
-
             jl_finalize_module(m.release(), !toplevel);
         }
 
@@ -1331,7 +1326,6 @@ static uint64_t getAddressForFunction(StringRef fname)
 #ifdef JL_DEBUG_BUILD
     llvm::raw_fd_ostream out(1, false);
 #endif
-    //jl_printf(JL_STDERR, "%s\n", fname);
     jl_finalize_function(fname);
     uint64_t ret = jl_ExecutionEngine->getFunctionAddress(fname);
     return ret;
@@ -7816,7 +7810,7 @@ extern void jl_write_bitcode_module(void *M, char *fname) {
 // For saving shared object related data
 extern "C" int jl_shadow_output_to_bc(void)
 {
-    char const* fname = "/home/query/pkg/src/puddle/shadow.bc";
+    char const* fname = "/home/tim/pkg/src/puddle/shadow.bc";
     jl_write_bitcode_module((void*)shadow_output, const_cast<char*>(fname));
     return 0;
 }
@@ -7825,7 +7819,7 @@ extern "C" int jl_shadow_output_to_bc(void)
 extern "C" int jl_save_umbra(void)
 {
     jl_printf(JL_STDERR, "Save umbra\n");
-    char const* fname = "/home/query/pkg/src/puddle/umbra.bc";
+    char const* fname = "/home/tim/pkg/src/puddle/umbra.bc";
     jl_write_bitcode_module((void*)umbra_output, const_cast<char*>(fname));
     return 0;
 }
