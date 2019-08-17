@@ -226,9 +226,8 @@ JL_DLLEXPORT void jl_atexit_hook(int exitcode)
 
     jl_ptls_t ptls = jl_get_ptls_states();
 
-    if (exitcode == 0) {
+    if (exitcode == 0)
         jl_write_compiler_output();
-    }
     jl_print_gc_stats(JL_STDERR);
     if (jl_options.code_coverage)
         jl_write_coverage_data(jl_options.output_code_coverage);
@@ -734,7 +733,7 @@ void _julia_init(JL_IMAGE_SEARCH rel)
     }
 #endif
 
-    if ((jl_options.outputo || jl_options.outputso || jl_options.outputbc) &&
+    if ((jl_options.outputo || jl_options.outputbc) &&
         (jl_options.code_coverage || jl_options.malloc_log)) {
         jl_error("cannot generate code-coverage or track allocation information while generating a .o or .bc output file");
     }

@@ -29,7 +29,6 @@ extern "C" {
 extern TargetMachine *jl_TargetMachine;
 extern Module *shadow_output;
 extern bool imaging_mode;
-extern size_t in_compile_hint;
 #if defined(_OS_WINDOWS_) && defined(_CPU_X86_64_)
 extern Function *juliapersonality_func;
 #endif

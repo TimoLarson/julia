@@ -17,16 +17,13 @@ extern "C" {
 
 JL_DLLEXPORT int jl_generating_output(void)
 {
-    return jl_options.outputo || jl_options.outputso || jl_options.outputbc || jl_options.outputunoptbc || jl_options.outputji;
+    return jl_options.outputo || jl_options.outputbc || jl_options.outputunoptbc || jl_options.outputji;
 }
 
 void jl_precompile(int all);
 
 void jl_write_compiler_output(void)
 {
-    if (jl_options.outputso)
-        jl_shadow_output_to_bc();
-
     if (!jl_generating_output()) {
         if (jl_options.outputjitbc)
             jl_dump_native(NULL, jl_options.outputjitbc, NULL, NULL, 0);
@@ -65,12 +62,6 @@ void jl_write_compiler_output(void)
     }
 
     if (jl_options.incremental) {
-        if (jl_options.outputso){
-            jl_dump_native("/home/tim/pkg/src/puddle/output.bc", // jl_options.outputbc,
-                           "/home/tim/pkg/src/puddle/outputunopt.bc", // jl_options.outputunoptbc,
-                           NULL, // "/home/tim/pkg/src/puddle/output.o", // jl_options.outputo,
-                           NULL, 0); // (const char*)s->buf, (size_t)s->size);
-        }
         if (jl_options.outputji)
             if (jl_save_incremental(jl_options.outputji, worklist))
                 jl_exit(1);

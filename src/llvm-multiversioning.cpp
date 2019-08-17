@@ -321,7 +321,6 @@ static inline std::vector<T*> consume_gv(Module &M, const char *name)
 {
     // Get information about sysimg export functions from the two global variables.
     // Strip them from the Module so that it's easier to handle the uses.
-    jl_safe_printf("consume_gv(%s)\n", name);
     GlobalVariable *gv = M.getGlobalVariable(name);
     assert(gv && gv->hasInitializer());
     auto *ary = cast<ConstantArray>(gv->getInitializer());
@@ -331,14 +330,8 @@ static inline std::vector<T*> consume_gv(Module &M, const char *name)
         res[i] = cast<T>(ary->getOperand(i)->stripPointerCasts());
     assert(gv->use_empty());
     gv->eraseFromParent();
-    if (ary->use_empty()) {
-        if (!strcmp(name, "jl_sysimg_fvars")){
-            jl_safe_printf("destroying %s\n", name);
-            ary->destroyConstant();
-        }else{
-            jl_safe_printf("skipping destroying %s\n", name);
-        }
-    }
+    if (ary->use_empty())
+        ary->destroyConstant();
     return res;
 }
 
@@ -880,10 +873,6 @@ template<typename T>
 Constant *CloneCtx::emit_offset_table(const std::vector<T*> &vars, StringRef name) const
 {
     assert(!vars.empty());
-    jl_safe_printf("emit_offset_table add_comdat name: %s\n", name.str().c_str());
-    jl_safe_printf("T_psize %i\n", T_psize);
-    auto z = ConstantExpr::getBitCast(vars[0], T_psize);
-    jl_safe_printf("emit_offset_table add_comdat name + _base: %s\n", (name + "_base").str().c_str());
     add_comdat(GlobalAlias::create(T_size, 0, GlobalVariable::ExternalLinkage,
                                    name + "_base",
                                    ConstantExpr::getBitCast(vars[0], T_psize), &M));

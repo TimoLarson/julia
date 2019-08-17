@@ -24,8 +24,6 @@
 extern "C" {
 #endif
 
-JL_DLLEXPORT size_t in_compile_hint = 0;
-
 JL_DLLEXPORT size_t jl_world_counter = 1;
 JL_DLLEXPORT size_t jl_get_world_counter(void)
 {
@@ -2012,7 +2010,7 @@ jl_method_instance_t *jl_get_specialization1(jl_tupletype_t *types JL_PROPAGATES
 
 static void _generate_from_hint(jl_method_instance_t *mi, size_t world)
 {
-    int generating_llvm = jl_options.outputo || jl_options.outputso || jl_options.outputbc || jl_options.outputunoptbc;
+    int generating_llvm = jl_options.outputo || jl_options.outputbc || jl_options.outputunoptbc;
     jl_code_info_t *src = NULL;
     // If we are saving ji files (e.g. package pre-compilation or intermediate sysimg build steps),
     // don't bother generating anything since it won't be saved.
@@ -2026,12 +2024,6 @@ static void _generate_from_hint(jl_method_instance_t *mi, size_t world)
         // If we are saving LLVM or native code, generate the LLVM IR so that it'll
         // be included in the saved LLVM module.
         (void)jl_compile_linfo(mi, src, world, &jl_default_cgparams);
-
-        if (jl_options.outputso) {
-            jl_printf(JL_STDERR, "Compiled: ");
-            jl_static_show(JL_STDERR, (jl_value_t*)mi);
-            jl_printf(JL_STDERR, "\n");
-        }
     }
 }
 
@@ -2048,8 +2040,6 @@ void jl_compile_now(jl_method_instance_t *mi)
 
 JL_DLLEXPORT int jl_compile_hint(jl_tupletype_t *types)
 {
-    in_compile_hint += 1;
-    //jl_printf(JL_STDERR, "\nIn jl_compile_hint\n");
     size_t world = jl_world_counter;
     size_t tworld = jl_typeinf_world;
     size_t min_valid = 0;
@@ -2086,7 +2076,6 @@ JL_DLLEXPORT int jl_compile_hint(jl_tupletype_t *types)
         (void)jl_compile_method_internal(mi, world);
     }
     return 1;
-    in_compile_hint -= 1;
 }
 
 #ifndef NDEBUG

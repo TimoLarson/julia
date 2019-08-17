@@ -7800,11 +7800,3 @@ extern void jl_write_bitcode_module(void *M, char *fname) {
     llvm::WriteBitcodeToFile((llvm::Module*)M, OS);
 #endif
 }
-
-// For saving shared object related data
-extern "C" int jl_shadow_output_to_bc(void)
-{
-    char const* fname = "/home/tim/pkg/src/puddle/shadow.bc";
-    jl_write_bitcode_module((void*)shadow_output, const_cast<char*>(fname));
-    return 0;
-}
