@@ -27,7 +27,6 @@ void jl_write_compiler_output(void)
     if (jl_options.outputso)
         jl_shadow_output_to_bc();
 
-    //jl_printf(JL_STDERR, "\nin jl_write_compiler_output\n");
     if (!jl_generating_output()) {
         if (jl_options.outputjitbc)
             jl_dump_native(NULL, jl_options.outputjitbc, NULL, NULL, 0);
@@ -67,9 +66,9 @@ void jl_write_compiler_output(void)
 
     if (jl_options.incremental) {
         if (jl_options.outputso){
-            jl_dump_native("/home/query/pkg/src/puddle/output.bc", // jl_options.outputbc,
-                           "/home/query/pkg/src/puddle/outputunopt.bc", // jl_options.outputunoptbc,
-                           NULL, // "/home/query/pkg/src/puddle/output.o", // jl_options.outputo,
+            jl_dump_native("/home/tim/pkg/src/puddle/output.bc", // jl_options.outputbc,
+                           "/home/tim/pkg/src/puddle/outputunopt.bc", // jl_options.outputunoptbc,
+                           NULL, // "/home/tim/pkg/src/puddle/output.o", // jl_options.outputo,
                            NULL, 0); // (const char*)s->buf, (size_t)s->size);
         }
         if (jl_options.outputji)
