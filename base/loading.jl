@@ -1161,25 +1161,9 @@ function load_path_setup_code(load_path::Bool=true)
     return code
 end
 
+pkg_cache_callback = nothing
+
 function create_expr_cache(input::String, output::String, concrete_deps::typeof(_concrete_dependencies), uuid::Union{Nothing,UUID})
-    # Paths for tools involved
-    toolsdir = "/home/tim/pkg/src/julia/julia-build/usr/tools"
-
-    llvm_config = joinpath(toolsdir, "llvm-config")
-    llvm_as = joinpath(toolsdir, "llvm-as")
-    clang = joinpath(toolsdir, "clang")
-
-    outdir = dirname(output)
-    outbase = basename(output)
-    outname = outbase[1:findlast('.', outbase) - 1]
-
-    outputll = joinpath(outdir, outname, ".ll")
-    outputbc = joinpath(outdir, outname, ".bc")
-    outputso = joinpath(outdir, outname, ".so")
-
-    rm(outputll, force=true)
-    rm(outputbc, force=true)
-    rm(outputso, force=true)
     rm(output, force=true)   # Remove file if it exists
     code_object = """
         while !eof(stdin)
@@ -1190,45 +1174,18 @@ function create_expr_cache(input::String, output::String, concrete_deps::typeof(
 
     optionso = ""
 
-    if occursin("Addone", input) # Limited test
-
-        println("create_expr_cache: $input $output $outputso")
-
-        # LLVM IR code for a sample function
-        ir = """
-        define i64 @julia_addone(i64 %x) {
-            entry:
-              %tmp = add i64 %x, 2
-              ret i64 %tmp
-        }
-        define i64 @jfptr_addone(i64 %x) {
-            entry:
-              %tmp = add i64 %x, 2
-              ret i64 %tmp
-        }
-        """
-
-        # Get the target triple
-        target = chomp(read(`$llvm_config --host-target`, String))
-
-        # Add the target triple to the IR
-        r = "target triple = \"$(target)\"\n" * ir
-
-        # Write the LLVM IR to a file with extension .ll
-        open(outputll, "w") do f; print(f, ir) end
-
-        # Convert LLVM IR code to LLVM bitcode format
-        # and save the file with the extension .bc
-        run(`$(llvm_as) $(outputll) -o $(outputbc)`)
-
-        # Compile the LLVM bitcode to a native shared library with the extension .so
-        run(`$(clang) -shared -fpic $(outputbc) -o $(outputso)`)
-
-        optionso = "--output-so $outputso"
+    if !isnothing(pkg_cache_callback)
+        try
+            optionso = pkg_cache_callback(input, output, concrete_deps, uuid)
+        catch e
+            println(stderr, "In create_expr_cache($input, $output, $concrete_deps, $uuid)")
+            println(stderr, "The pkg_cache_callback failed: $e")
+            println(stderr, "Proceeding anyways.")
+            optionso = ""
+        end
     end
 
-    io = open(pipeline(`$(julia_cmd()) -O0
-                       $optionso
+    io = open(pipeline(`$(julia_cmd()) -O0 $optionso
                        --output-ji $output --output-incremental=yes
                        --startup-file=no --history-file=no --warn-overwrite=yes
                        --color=$(have_color ? "yes" : "no")
