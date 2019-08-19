@@ -1163,6 +1163,10 @@ end
 
 pkg_cache_callback = nothing
 
+function set_pkg_cache_callback(fun)
+    pkg_cache_callback = fun
+end
+
 function create_expr_cache(input::String, output::String, concrete_deps::typeof(_concrete_dependencies), uuid::Union{Nothing,UUID})
     rm(output, force=true)   # Remove file if it exists
     code_object = """
@@ -1172,20 +1176,17 @@ function create_expr_cache(input::String, output::String, concrete_deps::typeof(
         end
         """
 
-    optionso = ""
-
     if !isnothing(pkg_cache_callback)
         try
-            optionso = pkg_cache_callback(input, output, concrete_deps, uuid)
+            pkg_cache_callback(input, output, concrete_deps, uuid)
         catch e
             println(stderr, "In create_expr_cache($input, $output, $concrete_deps, $uuid)")
             println(stderr, "The pkg_cache_callback failed: $e")
             println(stderr, "Proceeding anyways.")
-            optionso = ""
         end
     end
 
-    io = open(pipeline(`$(julia_cmd()) -O0 $optionso
+    io = open(pipeline(`$(julia_cmd()) -O0
                        --output-ji $output --output-incremental=yes
                        --startup-file=no --history-file=no --warn-overwrite=yes
                        --color=$(have_color ? "yes" : "no")
