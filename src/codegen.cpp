@@ -1173,6 +1173,7 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             jl_code_instance_t *uncached = (jl_code_instance_t*)jl_gc_alloc(ptls, sizeof(jl_code_instance_t),
                     jl_code_instance_type);
             *uncached = *codeinst;
+            uncached->natived = 0;
             uncached->functionObjectsDecls.functionObject = NULL;
             uncached->functionObjectsDecls.specFunctionObject = NULL;
             uncached->inferred = jl_nothing;
@@ -1187,6 +1188,27 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
         if (!nested_compile && dump_compiles_stream != NULL)
             last_time = jl_hrtime();
         nested_compile = true;
+
+        bool sharedlib = false;
+        bool bundle = true; 
+        if (jl_options.outputji && jl_options.incremental) {
+            sharedlib = true;
+            // Decide which methods to bundle into the shared library and show some debugging info
+            if (jl_options.outputji && jl_options.incremental) {
+                jl_method_t *_method = mi->def.method;
+                if (jl_is_method(_method)) {
+                    jl_module_t *_module = _method->module;
+                    if (_module && _module->parent == _module && (
+                            !strcmp("PkgA", jl_symbol_name(_module->name)) ||
+                            !strcmp("PkgB", jl_symbol_name(_module->name)) ||
+                            !strcmp("PkgC", jl_symbol_name(_module->name))
+                            )) {
+                        bundle = true;
+
+                    }
+                }
+            }
+        }
 
         // Step 3. actually do the work of emitting the function
         std::unique_ptr<Module> m;
@@ -1228,7 +1250,36 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             }
 
             // Step 5. Add the result to the execution engine now
-            jl_finalize_module(m.release(), !toplevel);
+
+            bundle = !toplevel && bundle;
+
+            if (sharedlib && bundle) {
+                jl_printf(JL_STDERR, "Adding to shadow (%i) %s %s\n", jl_options.sandbox, f, specf);
+                jl_method_t *_method = mi->def.method;
+                if (jl_is_method(_method)) {
+                    jl_printf(JL_STDERR, "Method: %s\n", jl_symbol_name(_method->name));
+                    jl_module_t *_module = _method->module;
+                    while(_module) {
+                        jl_printf(JL_STDERR, "Module: %s\n", jl_symbol_name(_module->name));
+                        if (_module == _module->parent) {
+                            jl_printf(JL_STDERR, "Module: <itself>\n");
+                            _module = NULL;
+                        }
+                        else {
+                            _module = _module->parent;
+                        }
+                    }
+                }
+            }
+
+            if (sharedlib) {
+                jl_finalize_module(m.release(), bundle);
+                if (bundle)
+                    codeinst->natived = 1;
+            }
+            else {
+                jl_finalize_module(m.release(), !toplevel);
+            }
         }
 
         if (// don't alter `inferred` when the code is not directly being used
@@ -7820,6 +7871,7 @@ extern void jl_write_bitcode_func(void *F, char *fname) {
 extern void jl_write_bitcode_module(void *M, char *fname) {
     std::error_code EC;
     raw_fd_ostream OS(fname, EC, sys::fs::F_None);
+    jl_globalPM->run(*(Module*)M);
 #if JL_LLVM_VERSION >= 70000
     llvm::WriteBitcodeToFile(*(llvm::Module*)M, OS);
 #else

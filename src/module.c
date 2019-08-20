@@ -36,6 +36,8 @@ JL_DLLEXPORT jl_module_t *jl_new_module(jl_sym_t *name)
     m->counter = 1;
     m->nospecialize = 0;
     JL_MUTEX_INIT(&m->lock);
+    m->libpath = NULL;
+    m->libhandle = NULL;
     htable_new(&m->bindings, 0);
     arraylist_new(&m->usings, 0);
     if (jl_core_module) {
