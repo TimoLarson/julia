@@ -1173,6 +1173,7 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             jl_code_instance_t *uncached = (jl_code_instance_t*)jl_gc_alloc(ptls, sizeof(jl_code_instance_t),
                     jl_code_instance_type);
             *uncached = *codeinst;
+            uncached->natived = 0;
             uncached->functionObjectsDecls.functionObject = NULL;
             uncached->functionObjectsDecls.specFunctionObject = NULL;
             uncached->inferred = jl_nothing;
@@ -7820,6 +7821,7 @@ extern void jl_write_bitcode_func(void *F, char *fname) {
 extern void jl_write_bitcode_module(void *M, char *fname) {
     std::error_code EC;
     raw_fd_ostream OS(fname, EC, sys::fs::F_None);
+    jl_globalPM->run(*(Module*)M);
 #if JL_LLVM_VERSION >= 70000
     llvm::WriteBitcodeToFile(*(llvm::Module*)M, OS);
 #else

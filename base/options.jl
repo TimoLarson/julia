@@ -41,6 +41,10 @@ struct JLOptions
     outputji::Ptr{UInt8}
     output_code_coverage::Ptr{UInt8}
     incremental::Int8
+    image_file_specified::Int8
+    sandbox::Int8
+    outputpath::Ptr{UInt8}
+    outputbase::Ptr{UInt8}
 end
 
 # This runs early in the sysimage != is not defined yet
