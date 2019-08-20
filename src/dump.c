@@ -120,8 +120,11 @@ htable_t edges_map;
 #define TAG_GOTONODE           51
 #define TAG_QUOTENODE          52
 #define TAG_GENERAL            53
+#define TAG_COMP_CODE_INSTANCE 54
+#define TAG_COMP_MODULE        55
+#define TAG_SHARED_OBJECT      56
 
-#define LAST_TAG 53
+#define LAST_TAG 56
 
 typedef enum _DUMP_MODES {
     // not in the serializer at all, or
@@ -410,7 +413,10 @@ static void jl_serialize_datatype(jl_serializer_state *s, jl_datatype_t *dt) JL_
 
 static void jl_serialize_module(jl_serializer_state *s, jl_module_t *m)
 {
-    write_uint8(s->s, TAG_MODULE);
+    if (m->shared_object_path)
+        write_uint8(s->s, TAG_COMP_MODULE);
+    else
+        write_uint8(s->s, TAG_MODULE);
     jl_serialize_value(s, m->name);
     size_t i;
     if (!module_in_worklist(m)) {
@@ -468,6 +474,8 @@ static void jl_serialize_module(jl_serializer_state *s, jl_module_t *m)
     write_uint64(s->s, m->build_id);
     write_int32(s->s, m->counter);
     write_int32(s->s, m->nospecialize);
+    if (m->shared_object_path)
+        jl_serialize_value(s, (jl_value_t*)m->shared_object_path);
 }
 
 static int is_ast_node(jl_value_t *v)
@@ -877,8 +885,11 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
         jl_serialize_value(s, (jl_value_t*)mi->cache);
     }
     else if (jl_is_code_instance(v)) {
-        write_uint8(s->s, TAG_CODE_INSTANCE);
         jl_code_instance_t *codeinst = (jl_code_instance_t*)v;
+        if (codeinst->compiled)
+            write_uint8(s->s, TAG_COMP_CODE_INSTANCE);
+        else
+            write_uint8(s->s, TAG_CODE_INSTANCE);
         int validate = 0;
         if (codeinst->max_world == ~(size_t)0)
             validate = 1; // can check on deserialize if this cache entry is still valid
@@ -897,6 +908,10 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
             jl_serialize_value(s, NULL);
             jl_serialize_value(s, NULL);
             jl_serialize_value(s, jl_any_type);
+        }
+        if (codeinst->compiled) {
+            jl_serialize_value(s, codeinst->functionObjectsDecls->functionObject);
+            jl_serialize_value(s, codeinst->functionObjectsDecls->specFunctionObject);
         }
         jl_serialize_value(s, codeinst->next);
     }
@@ -1754,7 +1769,13 @@ static jl_value_t *jl_deserialize_value_method_instance(jl_serializer_state *s, 
     return (jl_value_t*)mi;
 }
 
-static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl_value_t **loc) JL_GC_DISABLED
+static jl_value_t *jl_deserialize_value_shared_object(jl_serializer_state *s, jl_value_t **loc) JL_GC_DISABLED
+    char *path = jl_deserialize_value(s, &path);
+    lib = jl_dlopen(path, RTLD_LAZY);
+    return lib;
+}
+
+static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl_value_t **loc, uint8_t tag) JL_GC_DISABLED
 {
     int usetable = (s->mode != MODE_IR);
     jl_code_instance_t *codeinst =
@@ -1776,6 +1797,10 @@ static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl
     jl_gc_wb(codeinst, codeinst->rettype);
     if (constret)
         codeinst->invoke = jl_fptr_const_return;
+    if (tag == TAG_COMP_CODE_INSTANCE) {
+        codeinst->functionObjectsDecls->functionObject = jl_deserialize_value(s, codeinst->functionObjectsDecls->functionObject);
+        codeinst->functionObjectsDecls->specFunctionObject = jl_deserialize_value(s, codeinst->functionObjectsDecls->specFunctionObject);
+    }
     codeinst->next = (jl_code_instance_t*)jl_deserialize_value(s, (jl_value_t**)&codeinst->next);
     jl_gc_wb(codeinst, codeinst->next);
     if (validate)
@@ -2126,8 +2151,12 @@ static jl_value_t *jl_deserialize_value(jl_serializer_state *s, jl_value_t **loc
         return jl_deserialize_value_method(s, loc);
     case TAG_METHOD_INSTANCE:
         return jl_deserialize_value_method_instance(s, loc);
+    case TAG_COMP_CODE_INSTANCE:
+        return jl_deserialize_value_code_instance(s, loc, tag);
+    case TAG_SHARED_OBJECT:
+        return jl_deserialize_value_shared_object(s, loc);
     case TAG_CODE_INSTANCE:
-        return jl_deserialize_value_code_instance(s, loc);
+        return jl_deserialize_value_code_instance(s, loc, tag);
     case TAG_MODULE:
         return jl_deserialize_value_module(s);
     case TAG_SHORTER_INT64:
