@@ -352,6 +352,7 @@ typedef struct _jl_code_instance_t {
     // names of declarations in the JIT,
     // suitable for referencing in LLVM IR
     jl_llvm_functions_t functionObjectsDecls;
+    uint8_t compiled;
 } jl_code_instance_t;
 
 // all values are callable as Functions
@@ -489,6 +490,8 @@ typedef struct _jl_module_t {
     int32_t nospecialize;  // global bit flags: initialization for new methods
     uint8_t istopmod;
     jl_mutex_t lock;
+    jl_string_t *shared_object_path;
+    void *shared_object;
 } jl_module_t;
 
 // one Type-to-Value entry
@@ -1026,6 +1029,7 @@ static inline int jl_is_layout_opaque(const jl_datatype_layout_t *l) JL_NOTSAFEP
 #define jl_is_linenode(v)    jl_typeis(v,jl_linenumbernode_type)
 #define jl_is_method_instance(v) jl_typeis(v,jl_method_instance_type)
 #define jl_is_code_instance(v) jl_typeis(v,jl_code_instance_type)
+#define jl_is_comp_code_instance(v) (jl_typeis(v,jl_code_instance_type) && ((*jl_code_instance_type)v)->compiled)
 #define jl_is_code_info(v)   jl_typeis(v,jl_code_info_type)
 #define jl_is_method(v)      jl_typeis(v,jl_method_type)
 #define jl_is_module(v)      jl_typeis(v,jl_module_type)
