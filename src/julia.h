@@ -490,8 +490,8 @@ typedef struct _jl_module_t {
     int32_t nospecialize;  // global bit flags: initialization for new methods
     uint8_t istopmod;
     jl_mutex_t lock;
-    jl_string_t *shared_object_path;
-    void *shared_object;
+    char *libpath;
+    void *libhandle;
 } jl_module_t;
 
 // one Type-to-Value entry
