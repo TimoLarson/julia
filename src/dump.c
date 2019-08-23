@@ -410,7 +410,12 @@ static void jl_serialize_datatype(jl_serializer_state *s, jl_datatype_t *dt) JL_
 
 static void jl_serialize_module(jl_serializer_state *s, jl_module_t *m)
 {
-    write_uint8(s->s, TAG_MODULE);
+    //if (m->libpath) {
+        //jl_printf(JL_STDERR, "m->libpath: %p\n", m);
+        //jl_printf(JL_STDERR, "m->libpath: %p\n", m->libpath);
+    //    write_uint8(s->s, TAG_MODULE_COMPILED);
+    //} else
+        write_uint8(s->s, TAG_MODULE);
     jl_serialize_value(s, m->name);
     size_t i;
     if (!module_in_worklist(m)) {
@@ -473,7 +478,8 @@ static void jl_serialize_module(jl_serializer_state *s, jl_module_t *m)
     write_uint64(s->s, m->build_id);
     write_int32(s->s, m->counter);
     write_int32(s->s, m->nospecialize);
-    //jl_serialize_value(s, (jl_value_t*)m->libpath);
+    //if (m->libpath)
+    //    jl_serialize_value(s, (jl_value_t*)m->libpath);
 }
 
 static int is_ast_node(jl_value_t *v)
@@ -928,10 +934,6 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
             jl_serialize_value(s, NULL);
             jl_serialize_value(s, NULL);
             jl_serialize_value(s, jl_any_type);
-        }
-        if (codeinst->compiled) {
-            jl_serialize_value(s, codeinst->functionObjectsDecls.functionObject);
-            jl_serialize_value(s, codeinst->functionObjectsDecls.specFunctionObject);
         }
         jl_serialize_value(s, codeinst->next);
     }
