@@ -1029,7 +1029,6 @@ static inline int jl_is_layout_opaque(const jl_datatype_layout_t *l) JL_NOTSAFEP
 #define jl_is_linenode(v)    jl_typeis(v,jl_linenumbernode_type)
 #define jl_is_method_instance(v) jl_typeis(v,jl_method_instance_type)
 #define jl_is_code_instance(v) jl_typeis(v,jl_code_instance_type)
-#define jl_is_comp_code_instance(v) (jl_typeis(v,jl_code_instance_type) && ((*jl_code_instance_type)v)->compiled)
 #define jl_is_code_info(v)   jl_typeis(v,jl_code_info_type)
 #define jl_is_method(v)      jl_typeis(v,jl_method_type)
 #define jl_is_module(v)      jl_typeis(v,jl_module_type)

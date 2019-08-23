@@ -120,10 +120,8 @@ htable_t edges_map;
 #define TAG_GOTONODE           51
 #define TAG_QUOTENODE          52
 #define TAG_GENERAL            53
-#define TAG_CODE_INST_COMPILED 54
-#define TAG_MODULE_COMPILED    55
 
-#define LAST_TAG 55
+#define LAST_TAG 53
 
 typedef enum _DUMP_MODES {
     // not in the serializer at all, or
@@ -412,10 +410,7 @@ static void jl_serialize_datatype(jl_serializer_state *s, jl_datatype_t *dt) JL_
 
 static void jl_serialize_module(jl_serializer_state *s, jl_module_t *m)
 {
-    if (m->libpath)
-        write_uint8(s->s, TAG_MODULE_COMPILED);
-    else
-        write_uint8(s->s, TAG_MODULE);
+    write_uint8(s->s, TAG_MODULE);
     jl_serialize_value(s, m->name);
     size_t i;
     if (!module_in_worklist(m)) {
@@ -444,10 +439,14 @@ static void jl_serialize_module(jl_serializer_state *s, jl_module_t *m)
     write_int8(s->s, 0);
     jl_serialize_value(s, m->parent);
     void **table = m->bindings.table;
+    jl_printf(JL_STDERR, "    Bindings\n");
     for(i=1; i < m->bindings.size; i+=2) {
         if (table[i] != HT_NOTFOUND) {
             jl_binding_t *b = (jl_binding_t*)table[i];
             if (b->owner == m || m != jl_main_module) {
+
+                jl_printf(JL_STDERR, "        Binding: %s %i Owner: %s\n", jl_symbol_name(b->name), b->constp, jl_symbol_name(b->owner->name));
+
                 jl_serialize_value(s, b->name);
                 jl_serialize_value(s, b->value);
                 jl_serialize_value(s, b->globalref);
@@ -456,6 +455,7 @@ static void jl_serialize_module(jl_serializer_state *s, jl_module_t *m)
             }
         }
     }
+    jl_printf(JL_STDERR, "    End bindings\n");
     jl_serialize_value(s, NULL);
     if (m == jl_main_module) {
         write_int32(s->s, 1);
@@ -473,8 +473,7 @@ static void jl_serialize_module(jl_serializer_state *s, jl_module_t *m)
     write_uint64(s->s, m->build_id);
     write_int32(s->s, m->counter);
     write_int32(s->s, m->nospecialize);
-    if (m->libpath)
-        jl_serialize_value(s, (jl_value_t*)m->libpath);
+    //jl_serialize_value(s, (jl_value_t*)m->libpath);
 }
 
 static int is_ast_node(jl_value_t *v)
@@ -813,7 +812,12 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
         jl_methtable_t *mt = jl_method_table_for((jl_value_t*)m->sig);
         assert((jl_value_t*)mt != jl_nothing);
         external_mt = !module_in_worklist(mt->module);
+
+        jl_printf(JL_STDERR, "Specializations of: %s.\n", jl_symbol_name(m->name));
+
         jl_serialize_value(s, m->specializations);
+
+        jl_printf(JL_STDERR, "End specializations of: %s.\n", jl_symbol_name(m->name)); 
         jl_serialize_value(s, (jl_value_t*)m->name);
         jl_serialize_value(s, (jl_value_t*)m->file);
         write_int32(s->s, m->line);
@@ -841,6 +845,24 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
     else if (jl_is_method_instance(v)) {
         write_uint8(s->s, TAG_METHOD_INSTANCE);
         jl_method_instance_t *mi = (jl_method_instance_t*)v;
+
+        //====
+        jl_sym_t *name;
+        if (jl_is_method(mi->def.value)) {
+            name = mi->def.method->name;
+        }
+        else if (jl_is_module(mi->def.value)) {
+            name = mi->def.module->name;
+        }
+        else {
+            name = NULL;
+        }
+        if (name)
+            jl_printf(JL_STDERR, "    Method instance, Parent: %s\n", jl_symbol_name(name));
+        else
+            jl_printf(JL_STDERR, "    Method instance, Parent: unrecognized\n");
+        //----
+
         int internal = 0;
         if (!jl_is_method(mi->def.method))
             internal = 1;
@@ -884,17 +906,16 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
         jl_serialize_value(s, (jl_value_t*)mi->cache);
     }
     else if (jl_is_code_instance(v)) {
+        write_uint8(s->s, TAG_CODE_INSTANCE);
         jl_code_instance_t *codeinst = (jl_code_instance_t*)v;
-        if (codeinst->compiled)
-            write_uint8(s->s, TAG_CODE_INST_COMPILED);
-        else
-            write_uint8(s->s, TAG_CODE_INSTANCE);
         int validate = 0;
         if (codeinst->max_world == ~(size_t)0)
             validate = 1; // can check on deserialize if this cache entry is still valid
         int flags = validate << 0;
         if (codeinst->invoke == jl_fptr_const_return)
             flags |= 1 << 2;
+        if (codeinst->compiled)
+            flags |= 1 << 3;
         write_uint8(s->s, flags);
         jl_serialize_value(s, (jl_value_t*)codeinst->def);
         if (validate || codeinst->min_world == 0) {
@@ -1143,6 +1164,7 @@ static int jl_collect_methcache_from_mod(jl_typemap_entry_t *ml, void *closure) 
 {
     jl_array_t *s = (jl_array_t*)closure;
     jl_method_t *m = ml->func.method;
+    jl_printf(JL_STDERR, "--> module: %s.\n", jl_symbol_name(m->module->name));
     if (module_in_worklist(m->module)) {
         jl_array_ptr_1d_push(s, (jl_value_t*)m);
         jl_array_ptr_1d_push(s, (jl_value_t*)ml->simplesig);
@@ -1768,7 +1790,7 @@ static jl_value_t *jl_deserialize_value_method_instance(jl_serializer_state *s, 
     return (jl_value_t*)mi;
 }
 
-static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl_value_t **loc, uint8_t tag) JL_GC_DISABLED
+static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl_value_t **loc) JL_GC_DISABLED
 {
     int usetable = (s->mode != MODE_IR);
     jl_code_instance_t *codeinst =
@@ -1779,6 +1801,7 @@ static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl
     int flags = read_uint8(s->s);
     int validate = (flags >> 0) & 3;
     int constret = (flags >> 2) & 1;
+    int compiled = (flags >> 3) & 1;
     codeinst->def = (jl_method_instance_t*)jl_deserialize_value(s, (jl_value_t**)&codeinst->def);
     jl_gc_wb(codeinst, codeinst->def);
     codeinst->inferred = jl_deserialize_value(s, &codeinst->inferred);
@@ -1790,9 +1813,12 @@ static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl
     jl_gc_wb(codeinst, codeinst->rettype);
     if (constret)
         codeinst->invoke = jl_fptr_const_return;
-    if (tag == TAG_CODE_INST_COMPILED) {
+    if (compiled) {
+        codeinst->compiled = compiled;
         codeinst->functionObjectsDecls.functionObject = (char*)jl_deserialize_value(s, NULL);
         codeinst->functionObjectsDecls.specFunctionObject = (char*)jl_deserialize_value(s, NULL);
+        jl_printf(JL_STDERR, "functionObject: %s\n", jl_symbol_name(codeinst->functionObjectsDecls.functionObject));
+        jl_printf(JL_STDERR, "specFunctionObject: %s\n", jl_symbol_name(codeinst->functionObjectsDecls.specFunctionObject));
     }
     codeinst->next = (jl_code_instance_t*)jl_deserialize_value(s, (jl_value_t**)&codeinst->next);
     jl_gc_wb(codeinst, codeinst->next);
@@ -1801,7 +1827,7 @@ static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl
     return (jl_value_t*)codeinst;
 }
 
-static jl_value_t *jl_deserialize_value_module(jl_serializer_state *s, uint8_t tag) JL_GC_DISABLED
+static jl_value_t *jl_deserialize_value_module(jl_serializer_state *s) JL_GC_DISABLED
 {
     int usetable = (s->mode != MODE_IR);
     uintptr_t pos = backref_list.len;
@@ -1859,10 +1885,11 @@ static jl_value_t *jl_deserialize_value_module(jl_serializer_state *s, uint8_t t
     m->nospecialize = read_int32(s->s);
     m->primary_world = jl_world_counter;
 
-    if (tag == TAG_MODULE_COMPILED) {
-        m->libpath = (char*)jl_deserialize_value(s, NULL);
-        m->libhandle = jl_dlopen(m->libpath, RTLD_LAZY);
-    }
+    //m->libpath = (char*)jl_deserialize_value(s, NULL);
+    //if (m->libpath)
+    //    m->libhandle = jl_dlopen(m->libpath, RTLD_LAZY);
+    //else
+    //    m->libhandle = NULL;
 
     return (jl_value_t*)m;
 }
@@ -2150,14 +2177,10 @@ static jl_value_t *jl_deserialize_value(jl_serializer_state *s, jl_value_t **loc
         return jl_deserialize_value_method(s, loc);
     case TAG_METHOD_INSTANCE:
         return jl_deserialize_value_method_instance(s, loc);
-    case TAG_CODE_INST_COMPILED:
-        return jl_deserialize_value_code_instance(s, loc, tag);
     case TAG_CODE_INSTANCE:
-        return jl_deserialize_value_code_instance(s, loc, tag);
+        return jl_deserialize_value_code_instance(s, loc);
     case TAG_MODULE:
-        return jl_deserialize_value_module(s, tag);
-    case TAG_MODULE_COMPILED:
-        return jl_deserialize_value_module(s, tag);
+        return jl_deserialize_value_module(s);
     case TAG_SHORTER_INT64:
         v = jl_box_int64((int16_t)read_uint16(s->s));
         if (usetable)
@@ -2792,6 +2815,22 @@ JL_DLLEXPORT jl_value_t *jl_uncompress_argname_n(jl_value_t *syms, size_t i)
     return jl_nothing;
 }
 
+void tl_show_lambdas(jl_array_t *lambdas) {
+    size_t len = jl_array_len(lambdas);
+    jl_printf(JL_STDERR, "Num lambdas: %lu.\n", len);
+
+    /*
+    for (i = 0; i < len; i++) {
+        jl_module_t *m = (jl_module_t*)jl_array_ptr_ref(lambdas, i);
+        assert(jl_is_module(m));
+        if (m->parent == m) { // some toplevel modules (really just Base) aren't actually
+            jl_printf(JL_STDERR, "Module: %s.\n", jl_symbol_name(m->name));
+            jl_collect_lambdas_from_mod(lambdas, m);
+        }
+    }
+    */
+
+}
 
 JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
 {
@@ -2839,8 +2878,10 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
     for (i = 0; i < len; i++) {
         jl_module_t *m = (jl_module_t*)jl_array_ptr_ref(mod_array, i);
         assert(jl_is_module(m));
-        if (m->parent == m) // some toplevel modules (really just Base) aren't actually
+        if (m->parent == m) { // some toplevel modules (really just Base) aren't actually
+            jl_printf(JL_STDERR, "Module: %s.\n", jl_symbol_name(m->name));
             jl_collect_lambdas_from_mod(lambdas, m);
+        }
     }
     jl_collect_methtable_from_mod(lambdas, jl_type_type_mt);
     jl_collect_missing_backedges_to_mod(jl_type_type_mt);
@@ -2855,9 +2896,26 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
         jl_get_ptls_states(),
         mod_array
     };
+
+    size_t len_worklist = jl_array_len(worklist);
+    jl_printf(JL_STDERR, "Num worklist: %lu.\n", len_worklist);
+    for (i = 0; i < len_worklist; i++) {
+        jl_module_t *m = (jl_module_t*)jl_array_ptr_ref(worklist, i);
+        jl_printf(JL_STDERR, "    Module: %s.\n", jl_symbol_name(m->name));
+    }
+
     jl_serialize_value(&s, worklist);
+
+    size_t len_lambdas = jl_array_len(lambdas);
+    jl_printf(JL_STDERR, "Num lambdas: %lu.\n", len_lambdas);
+
     jl_serialize_value(&s, lambdas);
+
+    size_t len_edges = jl_array_len(edges);
+    jl_printf(JL_STDERR, "Num edges: %lu.\n", len_edges);
+
     jl_serialize_value(&s, edges);
+
     jl_finalize_serializer(&s);
     serializer_worklist = NULL;
 
