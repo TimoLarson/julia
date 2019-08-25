@@ -415,7 +415,7 @@ static void jl_serialize_module(jl_serializer_state *s, jl_module_t *m)
         //jl_printf(JL_STDERR, "m->libpath: %p\n", m->libpath);
     //    write_uint8(s->s, TAG_MODULE_COMPILED);
     //} else
-        write_uint8(s->s, TAG_MODULE);
+    write_uint8(s->s, TAG_MODULE);
     jl_serialize_value(s, m->name);
     size_t i;
     if (!module_in_worklist(m)) {
@@ -512,6 +512,14 @@ static int literal_val_id(jl_serializer_state *s, jl_value_t *v) JL_GC_DISABLED
     }
     jl_array_ptr_1d_push(rs, v);
     return jl_array_len(rs) - 1;
+}
+
+static void jl_serialize_value_cstring(jl_serializer_state *s, char *cstring) JL_GC_DISABLED
+{
+    size_t len;
+    len = strlen(cstring);
+    write_int32(s->s, len);
+    ios_write(s->s, cstring, len);
 }
 
 static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_literal) JL_GC_DISABLED
@@ -935,6 +943,10 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
             jl_serialize_value(s, NULL);
             jl_serialize_value(s, jl_any_type);
         }
+        if (codeinst->compiled) {
+            jl_serialize_value_cstring(s, (char*)codeinst->functionObjectsDecls.functionObject);
+            jl_serialize_value_cstring(s, (char*)codeinst->functionObjectsDecls.specFunctionObject);
+        }
         jl_serialize_value(s, codeinst->next);
     }
     else if (jl_typeis(v, jl_module_type)) {
@@ -1166,7 +1178,7 @@ static int jl_collect_methcache_from_mod(jl_typemap_entry_t *ml, void *closure) 
 {
     jl_array_t *s = (jl_array_t*)closure;
     jl_method_t *m = ml->func.method;
-    jl_printf(JL_STDERR, "--> module: %s.\n", jl_symbol_name(m->module->name));
+    //jl_printf(JL_STDERR, "--> module: %s.\n", jl_symbol_name(m->module->name));
     if (module_in_worklist(m->module)) {
         jl_array_ptr_1d_push(s, (jl_value_t*)m);
         jl_array_ptr_1d_push(s, (jl_value_t*)ml->simplesig);
@@ -1567,6 +1579,16 @@ static jl_value_t *jl_deserialize_value_symbol(jl_serializer_state *s, uint8_t t
     return sym;
 }
 
+static char *jl_deserialize_value_cstring(jl_serializer_state *s) JL_GC_DISABLED
+{
+    size_t len;
+    len = read_int32(s->s);
+    char *name = (char*)(len >= 256 ? malloc(len + 1) : alloca(len + 1));
+    ios_read(s->s, name, len);
+    name[len] = '\0';
+    return name;
+}
+
 static jl_value_t *jl_deserialize_value_array(jl_serializer_state *s, uint8_t tag) JL_GC_DISABLED
 {
     int usetable = (s->mode != MODE_IR);
@@ -1817,10 +1839,33 @@ static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl
         codeinst->invoke = jl_fptr_const_return;
     if (compiled) {
         codeinst->compiled = compiled;
-        codeinst->functionObjectsDecls.functionObject = (char*)jl_deserialize_value(s, NULL);
-        codeinst->functionObjectsDecls.specFunctionObject = (char*)jl_deserialize_value(s, NULL);
-        jl_printf(JL_STDERR, "functionObject: %s\n", jl_symbol_name(codeinst->functionObjectsDecls.functionObject));
-        jl_printf(JL_STDERR, "specFunctionObject: %s\n", jl_symbol_name(codeinst->functionObjectsDecls.specFunctionObject));
+        codeinst->functionObjectsDecls.functionObject = jl_deserialize_value_cstring(s);
+        codeinst->functionObjectsDecls.specFunctionObject = jl_deserialize_value_cstring(s);
+        jl_printf(JL_STDERR, "functionObject: %s\n", codeinst->functionObjectsDecls.functionObject);
+        jl_printf(JL_STDERR, "specFunctionObject: %s\n", codeinst->functionObjectsDecls.specFunctionObject);
+        jl_method_instance_t *mi = codeinst->def;
+
+        if (jl_is_method(mi->def.value)) {
+            jl_printf(JL_STDERR, "method\n");
+        }
+        else if (jl_is_module(mi->def.value)) {
+            jl_printf(JL_STDERR, "module\n");
+        }
+        else {
+            jl_printf(JL_STDERR, "other\n");
+        }
+
+
+        jl_method_t *meth = mi->def.method;
+        jl_printf(JL_STDERR, "Method: %s.\n", jl_symbol_name(meth->name));
+
+        jl_module_t *module = meth->module;
+
+        if (!module->libhandle)
+            module->libhandle = dlopen("/home/tim/pkg/src/puddle/shadow.so", RTLD_LAZY);
+        void *lib = module->libhandle;
+        codeinst->invoke = (jl_callptr_t)dlsym(lib, codeinst->functionObjectsDecls.functionObject);
+        codeinst->specptr = (jl_generic_specptr_t)dlsym(lib, codeinst->functionObjectsDecls.specFunctionObject);
     }
     codeinst->next = (jl_code_instance_t*)jl_deserialize_value(s, (jl_value_t**)&codeinst->next);
     jl_gc_wb(codeinst, codeinst->next);
@@ -1891,7 +1936,7 @@ static jl_value_t *jl_deserialize_value_module(jl_serializer_state *s) JL_GC_DIS
     //if (m->libpath)
     //    m->libhandle = jl_dlopen(m->libpath, RTLD_LAZY);
     //else
-    //    m->libhandle = NULL;
+    m->libhandle = NULL;
 
     return (jl_value_t*)m;
 }
@@ -2881,7 +2926,8 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
         jl_module_t *m = (jl_module_t*)jl_array_ptr_ref(mod_array, i);
         assert(jl_is_module(m));
         if (m->parent == m) { // some toplevel modules (really just Base) aren't actually
-            jl_printf(JL_STDERR, "Module: %s.\n", jl_symbol_name(m->name));
+            jl_printf(JL_STDERR, "Module: %s\n", jl_symbol_name(m->name));
+
             jl_collect_lambdas_from_mod(lambdas, m);
         }
     }

@@ -22,6 +22,17 @@ JL_DLLEXPORT int jl_generating_output(void)
 
 void jl_precompile(int all);
 
+extern void *shadow_output;
+
+// For saving shared object related data
+JL_DLLEXPORT int jl_shadow_output_to_bc(void)
+{
+    char const* fname = "/home/tim/pkg/src/puddle/shadow.bc";
+    //jl_write_bitcode_module((void*)shadow_output, const_cast<char*>(fname));
+    jl_write_bitcode_module((void*)shadow_output, fname);
+    return 0;
+}
+
 void jl_write_compiler_output(void)
 {
     if (!jl_generating_output()) {
@@ -30,8 +41,10 @@ void jl_write_compiler_output(void)
         return;
     }
 
-    if (!jl_options.incremental)
+    if (!jl_options.incremental) {
         jl_precompile(jl_options.compile_enabled == JL_OPTIONS_COMPILE_ALL);
+        jl_shadow_output_to_bc();
+    }
 
     if (!jl_module_init_order) {
         jl_printf(JL_STDERR, "WARNING: --output requested, but no modules defined during run\n");

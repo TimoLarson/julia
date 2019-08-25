@@ -4,8 +4,8 @@ Design:
 
 Augment jl_module_t with the path and a handle to a corresponding native shared library.
 
-Augment jl_code_instance_t with a "compiled" flag
-Set the compiled flag when a code instance is compiled
+Augment jl_code_instance_t with a "compiled" flag.
+Set the compiled flag when a code instance is compiled into a shared library.
 
 Augment the serializer to:
 * Output jl_module_t with the libpath (path to module shared library.)
