@@ -29,7 +29,7 @@ JL_DLLEXPORT int jl_shadow_output_to_bc(void)
 {
     char const* fname = "/home/tim/pkg/src/puddle/shadow.bc";
     //jl_write_bitcode_module((void*)shadow_output, const_cast<char*>(fname));
-    jl_write_bitcode_module((void*)shadow_output, fname);
+    jl_write_bitcode_module((void*)shadow_output, (char*)fname);
     return 0;
 }
 
@@ -43,7 +43,8 @@ void jl_write_compiler_output(void)
 
     if (!jl_options.incremental) {
         jl_precompile(jl_options.compile_enabled == JL_OPTIONS_COMPILE_ALL);
-        jl_shadow_output_to_bc();
+        jl_printf(JL_STDERR, "=== would call jl_shadow_output_to_bc === %i\n", jl_options.sandbox);
+        //jl_shadow_output_to_bc();
     }
 
     if (!jl_module_init_order) {

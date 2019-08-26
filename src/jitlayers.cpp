@@ -935,7 +935,7 @@ void* jl_get_globalvar(GlobalVariable *gv)
 void jl_add_to_shadow(Module *m)
 {
 #ifndef KEEP_BODIES
-    if (!imaging_mode && !jl_options.outputjitbc && !jl_options.outputji)
+    if (!imaging_mode && !jl_options.outputjitbc && !jl_options.sandbox)
         return;
 #endif
     ValueToValueMapTy VMap;

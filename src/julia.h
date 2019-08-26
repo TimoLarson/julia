@@ -1876,6 +1876,7 @@ typedef struct {
     const char *outputji;
     const char *output_code_coverage;
     int8_t incremental;
+    int8_t sandbox;
     int8_t image_file_specified;
 } jl_options_t;
 

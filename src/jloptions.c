@@ -71,6 +71,7 @@ jl_options_t jl_options = { 0,    // quiet
                             NULL, // output-ji
                             NULL,    // output-code_coverage
                             0, // incremental
+                            0, // sandbox
                             0 // image_file_specified
 };
 

@@ -1223,11 +1223,6 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
                     jl_add_code_in_flight(f, codeinst, DL);
             }
 
-            // Mark method instance as having been compiled
-            //codeinst->compiled = 1;
-            //if (jl_options.outputji)
-            //    jl_printf(JL_STDERR, "Compiled: %s\n", jl_symbol_name(mi->def.method->name));
-
             // Step 5. Add the result to the execution engine now
             jl_finalize_module(m.release(), !toplevel);
         }
@@ -1362,6 +1357,15 @@ void jl_generate_fptr(jl_code_instance_t *output)
         JL_UNLOCK(&codegen_lock);
         return;
     }
+
+    if (codeinst->compiled) {
+        jl_uv_libhandle lib = jl_dlopen("/home/tim/pkg/src/puddle/sample.so", JL_RTLD_LAZY);
+        jl_dlsym(lib, codeinst->functionObjectsDecls.functionObject, (void**)&(codeinst->invoke), 1);
+        jl_dlsym(lib, codeinst->functionObjectsDecls.specFunctionObject, (void**)&(codeinst->specptr), 1);
+        JL_UNLOCK(&codegen_lock);
+        return;
+    }
+
     jl_method_instance_t *unspec = NULL;
     if (jl_is_method(codeinst->def->def.method)) {
         jl_llvm_functions_t decls = codeinst->functionObjectsDecls;

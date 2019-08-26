@@ -2010,6 +2010,8 @@ jl_method_instance_t *jl_get_specialization1(jl_tupletype_t *types JL_PROPAGATES
 
 static void _generate_from_hint(jl_method_instance_t *mi, size_t world)
 {
+    jl_printf(JL_STDERR, "in _generate_from_hint sandbox: %i outputji: %s\n", jl_options.sandbox, jl_options.outputji);
+    //int generating_llvm = jl_options.outputo || jl_options.outputbc || jl_options.outputunoptbc || jl_options.sandbox;
     int generating_llvm = jl_options.outputo || jl_options.outputbc || jl_options.outputunoptbc || jl_options.outputji;
     jl_code_info_t *src = NULL;
     // If we are saving ji files (e.g. package pre-compilation or intermediate sysimg build steps),
@@ -2024,8 +2026,14 @@ static void _generate_from_hint(jl_method_instance_t *mi, size_t world)
         // If we are saving LLVM or native code, generate the LLVM IR so that it'll
         // be included in the saved LLVM module.
         jl_code_instance_t *compiledcodeinst = jl_compile_linfo(mi, src, world, &jl_default_cgparams);
-        compiledcodeinst->compiled = 1;
-        jl_printf(JL_STDERR, "Compiled: %s\n", jl_symbol_name(mi->def.method->name)); 
+        //if (jl_options.sandbox) {
+        if (jl_options.outputji) {
+            compiledcodeinst->compiled = 1;
+            jl_printf(JL_STDERR, "Marked as compiled: %s\n", jl_symbol_name(mi->def.method->name)); 
+        }
+        else {
+            jl_printf(JL_STDERR, "Would have marked as compiled: %s\n", jl_symbol_name(mi->def.method->name)); 
+        }
     }
 }
 
