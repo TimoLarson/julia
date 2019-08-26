@@ -935,8 +935,10 @@ void* jl_get_globalvar(GlobalVariable *gv)
 void jl_add_to_shadow(Module *m)
 {
 #ifndef KEEP_BODIES
-    if (!imaging_mode && !jl_options.outputjitbc && !jl_options.sandbox)
+    if (!imaging_mode && !jl_options.outputjitbc && !(jl_options.outputji && jl_options.sandbox))
         return;
+    if (jl_options.outputji && jl_options.sandbox)
+        jl_safe_printf("WHAT! %i %s\n", jl_options.sandbox, jl_options.outputji);
 #endif
     ValueToValueMapTy VMap;
 #if JL_LLVM_VERSION >= 70000

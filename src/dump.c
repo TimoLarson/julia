@@ -504,6 +504,7 @@ static int literal_val_id(jl_serializer_state *s, jl_value_t *v) JL_GC_DISABLED
 
 static void jl_serialize_value_cstring(jl_serializer_state *s, char *cstring) JL_GC_DISABLED
 {
+    jl_printf(JL_STDERR, "Serializing cstring\n");
     size_t len;
     len = strlen(cstring);
     write_int32(s->s, len);
@@ -1810,6 +1811,9 @@ static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl
     int validate = (flags >> 0) & 3;
     int constret = (flags >> 2) & 1;
     int compiled = (flags >> 3) & 1;
+
+    jl_printf(JL_STDERR, "jl_deserialize_value_code_instance compiled: %i\n", compiled);
+
     codeinst->def = (jl_method_instance_t*)jl_deserialize_value(s, (jl_value_t**)&codeinst->def);
     jl_gc_wb(codeinst, codeinst->def);
     codeinst->inferred = jl_deserialize_value(s, &codeinst->inferred);
