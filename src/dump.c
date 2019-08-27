@@ -1813,6 +1813,8 @@ static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl
     int natived = (flags >> 3) & 1;
 
     codeinst->natived = natived;
+    if (codeinst->natived)
+        codeinst->natived = 47;
 
     jl_printf(JL_STDERR, "jl_deserialize_value_code_instance natived: %i\n", natived);
 

@@ -1055,14 +1055,18 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
     if (jl_is_method(mi->def.method)) {
         codeinst = mi->cache;
         while (codeinst) {
+            jl_printf(JL_STDERR, "===> natived_i: %i ====\n", codeinst->natived);
             if (codeinst->min_world <= world && world <= codeinst->max_world) {
                 jl_llvm_functions_t decls = codeinst->functionObjectsDecls;
                 bool already_compiled = params->cached && decls.functionObject != NULL;
                 if (!src) {
-                    if (already_compiled || codeinst->invoke == jl_fptr_const_return)
+                    if (already_compiled || codeinst->invoke == jl_fptr_const_return) {
+                        jl_printf(JL_STDERR, "===> natived_0: %i ====\n", codeinst->natived);
                         return codeinst;
+                    }
                 }
                 else if (already_compiled) {
+                    jl_printf(JL_STDERR, "===> natived_1: %i ====\n", codeinst->natived);
                     return codeinst;
                 }
             }
@@ -1079,12 +1083,15 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
         // we waited at the lock).
         if (!jl_is_method(mi->def.method)) {
             src = (jl_code_info_t*)mi->uninferred;
-            if (!src || !jl_is_code_info(src))
+            if (!src || !jl_is_code_info(src)) {
+                jl_printf(JL_STDERR, "===> natived_2: %i ====\n", codeinst->natived);
                 goto locked_out;
+            }
             codeinst = mi->cache;
             while (codeinst) {
                 jl_llvm_functions_t decls = codeinst->functionObjectsDecls;
                 if (decls.functionObject != NULL || codeinst->invoke == jl_fptr_const_return) {
+                    jl_printf(JL_STDERR, "===> natived_3: %i ====\n", codeinst->natived);
                     goto locked_out;
                 }
                 codeinst = codeinst->next;
@@ -1096,10 +1103,12 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             if (jl_is_method(mi->def.method)) {
                 codeinst = mi->cache;
                 while (codeinst) {
+                    jl_printf(JL_STDERR, "===> natived_h: %i ====\n", codeinst->natived);
                     if (codeinst->min_world <= world && world <= codeinst->max_world) {
                         jl_llvm_functions_t decls = codeinst->functionObjectsDecls;
                         bool already_compiled = params->cached && decls.functionObject != NULL;
                         if (already_compiled) {
+                            jl_printf(JL_STDERR, "===> natived_4: %i ====\n", codeinst->natived);
                             goto locked_out;
                         }
                     }
@@ -1112,10 +1121,13 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             while (codeinst) {
                 src = (jl_code_info_t*)codeinst->inferred;
                 if (src && codeinst->min_world <= world && world <= codeinst->max_world) {
+                    jl_printf(JL_STDERR, "===> natived_f: %i ====\n", codeinst->natived);
                     break;
                 }
+                jl_printf(JL_STDERR, "===> natived_g: %i ====\n", codeinst->natived);
                 codeinst = codeinst->next;
             }
+            jl_printf(JL_STDERR, "===> natived_e: %i ====\n", codeinst->natived);
             if (!codeinst) {
                 // declare a failure to compile
                 goto locked_out;
@@ -1125,19 +1137,26 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
                 src = jl_uncompress_ast(mi->def.method, codeinst, (jl_array_t*)src);
             if (!jl_is_code_info(src)) {
                 src = jl_type_infer(mi, world, 0);
-                if (!src)
+                if (!src) {
+                    jl_printf(JL_STDERR, "===> natived_5: %i ====\n", codeinst->natived);
                     goto locked_out;
+                }
                 codeinst = jl_get_method_inferred(mi, src->rettype, src->min_world, src->max_world);
+                jl_printf(JL_STDERR, "===> natived_d: %i ====\n", codeinst->natived);
                 if (!codeinst->inferred)
                     codeinst->inferred = jl_nothing;
             }
             // check again for recursion
             jl_llvm_functions_t decls = codeinst->functionObjectsDecls;
             bool already_compiled = params->cached && decls.functionObject != NULL;
-            if (already_compiled || codeinst->invoke == jl_fptr_const_return)
+            if (already_compiled || codeinst->invoke == jl_fptr_const_return) {
+                jl_printf(JL_STDERR, "===> natived_6: %i ====\n", codeinst->natived);
                 goto locked_out;
+            }
+            jl_printf(JL_STDERR, "===> natived_c: %i ====\n", codeinst->natived);
         }
         else {
+            jl_printf(JL_STDERR, "===> else ====\n");
             if (params->cached) {
                 codeinst = mi->cache;
                 while (codeinst) {
@@ -1147,6 +1166,7 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
                         if (already_compiled) {
                             // similar to above, but never returns a NULL
                             // decl (unless compile fails), even if invoke == jl_fptr_const_return
+                            jl_printf(JL_STDERR, "===> natived_7: %i ====\n", codeinst->natived);
                             goto locked_out;
                         }
                     }
@@ -1160,6 +1180,7 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
 
         if (!codeinst) {
             codeinst = jl_get_method_inferred(mi, src->rettype, src->min_world, src->max_world);
+            jl_printf(JL_STDERR, "===> natived_8: %i ====\n", codeinst->natived);
             if (src->inferred && !codeinst->inferred)
                 codeinst->inferred = jl_nothing;
         }
@@ -1168,6 +1189,7 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             jl_ptls_t ptls = jl_get_ptls_states();
             jl_code_instance_t *uncached = (jl_code_instance_t*)jl_gc_alloc(ptls, sizeof(jl_code_instance_t),
                     jl_code_instance_type);
+            jl_printf(JL_STDERR, "===> natived_a: %i ====\n", uncached->natived);
             *uncached = *codeinst;
             uncached->natived = 0;
             uncached->functionObjectsDecls.functionObject = NULL;
@@ -1275,11 +1297,13 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
         last_time = this_time;
     }
     JL_GC_POP();
+    jl_printf(JL_STDERR, "===> natived_9: %i ====\n", codeinst->natived);
     return codeinst;
 
 locked_out:
     JL_UNLOCK(&codegen_lock);
     JL_GC_POP();
+    jl_printf(JL_STDERR, "===> natived_10: %i ====\n", codeinst->natived);
     return codeinst;
 }
 
@@ -1360,6 +1384,7 @@ void jl_generate_fptr(jl_code_instance_t *output)
     }
 
     if (codeinst->natived) {
+        jl_printf(JL_STDERR, "==== natived: %i ====\n", codeinst->natived);
         jl_printf(JL_STDERR, "==== Loading symbols ====\n");
         jl_uv_libhandle lib = jl_dlopen("/home/tim/pkg/src/puddle/sample.so", JL_RTLD_LAZY);
 

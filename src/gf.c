@@ -1851,6 +1851,7 @@ jl_code_instance_t *jl_compile_method_internal(jl_method_instance_t *mi, size_t 
     jl_code_instance_t *codeinst;
     codeinst = mi->cache;
     while (codeinst) {
+        jl_printf(JL_STDERR, "DEBUGc: %i\n", codeinst->natived);
         if (codeinst->min_world <= world && world <= codeinst->max_world && codeinst->invoke != NULL) {
             return codeinst;
         }
@@ -1866,6 +1867,7 @@ jl_code_instance_t *jl_compile_method_internal(jl_method_instance_t *mi, size_t 
             if (unspec && unspec->invoke != NULL) {
                 jl_code_instance_t *codeinst = jl_set_method_inferred(mi, (jl_value_t*)jl_any_type, NULL, NULL,
                     0, 1, ~(size_t)0);
+                jl_printf(JL_STDERR, "DEBUG1: %i\n", codeinst->natived);
                 codeinst->specptr = unspec->specptr;
                 codeinst->rettype_const = unspec->rettype_const;
                 jl_atomic_store_release(&codeinst->invoke, unspec->invoke);
@@ -1876,6 +1878,7 @@ jl_code_instance_t *jl_compile_method_internal(jl_method_instance_t *mi, size_t 
         if (!jl_code_requires_compiler(src)) {
             jl_code_instance_t *codeinst = jl_set_method_inferred(mi, (jl_value_t*)jl_any_type, NULL, NULL,
                 0, 1, ~(size_t)0);
+                jl_printf(JL_STDERR, "DEBUG2: %i\n", codeinst->natived);
             jl_atomic_store_release(&codeinst->invoke, jl_fptr_interpret_call);
             return codeinst;
         }
@@ -1892,6 +1895,8 @@ jl_code_instance_t *jl_compile_method_internal(jl_method_instance_t *mi, size_t 
             break;
         codeinst = codeinst->next;
     }
+    if (codeinst)
+        jl_printf(JL_STDERR, "DEBUGa: %i\n", codeinst->natived);
     if (codeinst == NULL) {
         // if we don't have any decls already, try to generate it now
         jl_code_info_t *src = NULL;
@@ -1902,9 +1907,12 @@ jl_code_instance_t *jl_compile_method_internal(jl_method_instance_t *mi, size_t 
             src = jl_type_infer(mi, world, 0);
         }
         codeinst = jl_compile_linfo(mi, src, world, &jl_default_cgparams);
+        if (codeinst)
+            jl_printf(JL_STDERR, "DEBUGb: %i\n", codeinst->natived);
         if (!codeinst) {
             jl_method_instance_t *unspec = jl_get_unspecialized(mi);
             jl_code_instance_t *ucache = jl_get_method_inferred(unspec, (jl_value_t*)jl_any_type, 1, ~(size_t)0);
+            jl_printf(JL_STDERR, "DEBUG3: %i\n", ucache->natived);
             // ask codegen to make the fptr for unspec
             if (ucache->invoke == NULL)
                 jl_generate_fptr(ucache);
@@ -1914,6 +1922,7 @@ jl_code_instance_t *jl_compile_method_internal(jl_method_instance_t *mi, size_t 
             }
             jl_code_instance_t *codeinst = jl_set_method_inferred(mi, (jl_value_t*)jl_any_type, NULL, NULL,
                 0, 1, ~(size_t)0);
+            jl_printf(JL_STDERR, "DEBUG4: %i\n", codeinst->natived);
             codeinst->specptr = ucache->specptr;
             codeinst->rettype_const = ucache->rettype_const;
             jl_atomic_store_release(&codeinst->invoke, ucache->invoke);
@@ -1921,6 +1930,7 @@ jl_code_instance_t *jl_compile_method_internal(jl_method_instance_t *mi, size_t 
         }
     }
 
+    jl_printf(JL_STDERR, "DEBUG5: %i\n", codeinst->natived);
     jl_generate_fptr(codeinst);
     return codeinst;
 }
@@ -2030,7 +2040,7 @@ static void _generate_from_hint(jl_method_instance_t *mi, size_t world)
         jl_code_instance_t *compiledcodeinst = jl_compile_linfo(mi, src, world, &jl_default_cgparams);
         //if (jl_options.sandbox) {
         if (jl_options.outputji) {
-            compiledcodeinst->natived = 1;
+            compiledcodeinst->natived = 81;
             jl_printf(JL_STDERR, "Marked as natived: %s\n", jl_symbol_name(mi->def.method->name)); 
         }
         else {
