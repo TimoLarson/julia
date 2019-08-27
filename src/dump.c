@@ -912,7 +912,7 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
         int flags = validate << 0;
         if (codeinst->invoke == jl_fptr_const_return)
             flags |= 1 << 2;
-        if (codeinst->compiled)
+        if (codeinst->natived)
             flags |= 1 << 3;
         write_uint8(s->s, flags);
         jl_serialize_value(s, (jl_value_t*)codeinst->def);
@@ -927,7 +927,7 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
             jl_serialize_value(s, NULL);
             jl_serialize_value(s, jl_any_type);
         }
-        if (codeinst->compiled) {
+        if (codeinst->natived) {
             jl_printf(JL_STDERR, "saving name functionObject: %s\n", codeinst->functionObjectsDecls.functionObject);
             jl_printf(JL_STDERR, "saving name specFunctionObject: %s\n", codeinst->functionObjectsDecls.specFunctionObject);
             jl_serialize_value_cstring(s, (char*)codeinst->functionObjectsDecls.functionObject);
@@ -1810,9 +1810,11 @@ static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl
     int flags = read_uint8(s->s);
     int validate = (flags >> 0) & 3;
     int constret = (flags >> 2) & 1;
-    int compiled = (flags >> 3) & 1;
+    int natived = (flags >> 3) & 1;
 
-    jl_printf(JL_STDERR, "jl_deserialize_value_code_instance compiled: %i\n", compiled);
+    codeinst->natived = natived;
+
+    jl_printf(JL_STDERR, "jl_deserialize_value_code_instance natived: %i\n", natived);
 
     codeinst->def = (jl_method_instance_t*)jl_deserialize_value(s, (jl_value_t**)&codeinst->def);
     jl_gc_wb(codeinst, codeinst->def);
@@ -1825,8 +1827,7 @@ static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl
     jl_gc_wb(codeinst, codeinst->rettype);
     if (constret)
         codeinst->invoke = jl_fptr_const_return;
-    if (compiled) {
-        codeinst->compiled = compiled;
+    if (natived) {
         codeinst->functionObjectsDecls.functionObject = jl_deserialize_value_cstring(s);
         codeinst->functionObjectsDecls.specFunctionObject = jl_deserialize_value_cstring(s);
         jl_printf(JL_STDERR, "functionObject: %s\n", codeinst->functionObjectsDecls.functionObject);

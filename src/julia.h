@@ -352,7 +352,7 @@ typedef struct _jl_code_instance_t {
     // names of declarations in the JIT,
     // suitable for referencing in LLVM IR
     jl_llvm_functions_t functionObjectsDecls;
-    uint8_t compiled;
+    uint8_t natived;
 } jl_code_instance_t;
 
 // all values are callable as Functions

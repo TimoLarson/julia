@@ -281,6 +281,7 @@ JL_DLLEXPORT jl_code_instance_t *jl_set_method_inferred(
     jl_code_instance_t *codeinst = (jl_code_instance_t*)jl_gc_alloc(ptls, sizeof(jl_code_instance_t),
             jl_code_instance_type);
     JL_GC_PUSH1(&codeinst);
+    codeinst->natived = 0;
     codeinst->def = mi;
     codeinst->min_world = min_world;
     codeinst->max_world = max_world;
@@ -300,7 +301,6 @@ JL_DLLEXPORT jl_code_instance_t *jl_set_method_inferred(
     codeinst->specptr.fptr = NULL;
     if (jl_is_method(mi->def.method))
         JL_LOCK(&mi->def.method->writelock);
-    codeinst->compiled = 0;
     codeinst->next = mi->cache;
     mi->cache = codeinst;
     jl_gc_wb(mi, codeinst);
@@ -2011,7 +2011,8 @@ jl_method_instance_t *jl_get_specialization1(jl_tupletype_t *types JL_PROPAGATES
 
 static void _generate_from_hint(jl_method_instance_t *mi, size_t world)
 {
-    jl_printf(JL_STDERR, "in _generate_from_hint sandbox: %i outputji: %s\n", jl_options.sandbox, jl_options.outputji);
+    if (jl_options.sandbox && jl_options.outputji)
+        jl_printf(JL_STDERR, "in _generate_from_hint sandbox: %i outputji: %s\n", jl_options.sandbox, jl_options.outputji);
     //int generating_llvm = jl_options.outputo || jl_options.outputbc || jl_options.outputunoptbc || jl_options.sandbox;
     int generating_llvm = jl_options.outputo || jl_options.outputbc || jl_options.outputunoptbc || (jl_options.outputji && jl_options.sandbox);
     jl_code_info_t *src = NULL;
@@ -2029,11 +2030,11 @@ static void _generate_from_hint(jl_method_instance_t *mi, size_t world)
         jl_code_instance_t *compiledcodeinst = jl_compile_linfo(mi, src, world, &jl_default_cgparams);
         //if (jl_options.sandbox) {
         if (jl_options.outputji) {
-            compiledcodeinst->compiled = 1;
-            jl_printf(JL_STDERR, "Marked as compiled: %s\n", jl_symbol_name(mi->def.method->name)); 
+            compiledcodeinst->natived = 1;
+            jl_printf(JL_STDERR, "Marked as natived: %s\n", jl_symbol_name(mi->def.method->name)); 
         }
         else {
-            jl_printf(JL_STDERR, "Would have marked as compiled: %s\n", jl_symbol_name(mi->def.method->name)); 
+            jl_printf(JL_STDERR, "Would have marked as natived: %s\n", jl_symbol_name(mi->def.method->name)); 
         }
     }
 }

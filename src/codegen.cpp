@@ -1169,13 +1169,13 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             jl_code_instance_t *uncached = (jl_code_instance_t*)jl_gc_alloc(ptls, sizeof(jl_code_instance_t),
                     jl_code_instance_type);
             *uncached = *codeinst;
+            uncached->natived = 0;
             uncached->functionObjectsDecls.functionObject = NULL;
             uncached->functionObjectsDecls.specFunctionObject = NULL;
             uncached->inferred = jl_nothing;
             if (uncached->invoke != jl_fptr_const_return)
                 uncached->invoke = NULL;
             uncached->specptr.fptr = NULL;
-            uncached->compiled = 0;
             codeinst = uncached;
         }
 
@@ -1359,13 +1359,14 @@ void jl_generate_fptr(jl_code_instance_t *output)
         return;
     }
 
-    if (codeinst->compiled) {
+    if (codeinst->natived) {
         jl_printf(JL_STDERR, "==== Loading symbols ====\n");
         jl_uv_libhandle lib = jl_dlopen("/home/tim/pkg/src/puddle/sample.so", JL_RTLD_LAZY);
 
         jl_printf(JL_STDERR, "==== Symbol: %s ====\n", codeinst->functionObjectsDecls.functionObject);
         jl_dlsym(lib, codeinst->functionObjectsDecls.functionObject, (void**)&(codeinst->invoke), 1);
 
+        jl_printf(JL_STDERR, "==== Symbol: %s ====\n", codeinst->functionObjectsDecls.specFunctionObject);
         jl_dlsym(lib, codeinst->functionObjectsDecls.specFunctionObject, (void**)&(codeinst->specptr), 1);
         JL_UNLOCK(&codegen_lock);
         jl_printf(JL_STDERR, "==== End Loading symbols ====\n");
