@@ -1265,6 +1265,11 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
                     jl_add_code_in_flight(f, codeinst, DL);
             }
 
+            //if (jl_options.outputji) {
+            //    jl_printf(JL_STDERR, "Compiled: %s\n", jl_symbol_name(mi->def.method->name));
+            //    codeinst->natived = 1;
+            //}
+
             // Step 5. Add the result to the execution engine now
             jl_finalize_module(m.release(), !toplevel);
         }

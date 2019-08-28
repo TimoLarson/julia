@@ -2063,8 +2063,8 @@ static void _generate_from_hint(jl_method_instance_t *mi, size_t world)
             jl_printf(JL_STDERR, "%s\n", jl_symbol_name(mi->def.method->name)); 
         }
         else {
-            jl_printf(JL_STDERR, "Would have marked as natived:\n");
-            jl_printf(JL_STDERR, "%s\n", jl_symbol_name(mi->def.method->name)); 
+            //jl_printf(JL_STDERR, "Would have marked as natived:\n");
+            //jl_printf(JL_STDERR, "%s\n", jl_symbol_name(mi->def.method->name)); 
         }
     }
 }
