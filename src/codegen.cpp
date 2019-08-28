@@ -1229,8 +1229,20 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             //    codeinst->natived = 1;
             //}
 
-            // Step 5. Add the result to the execution engine now
-            jl_finalize_module(m.release(), !toplevel);
+            if (jl_options.outputji) {
+                if (jl_options.sandbox) {
+                    // Step 5. Add the result to the execution engine now
+                    jl_finalize_module(m.release(), !toplevel);
+                }
+                else {
+                    // Step 5. Add the result to the execution engine now
+                    jl_finalize_module(m.release(), 0);
+                }
+            }
+            else {
+                // Step 5. Add the result to the execution engine now
+                jl_finalize_module(m.release(), !toplevel);
+            }
         }
 
         if (// don't alter `inferred` when the code is not directly being used

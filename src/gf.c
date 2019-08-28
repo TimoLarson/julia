@@ -2027,7 +2027,13 @@ static void _generate_from_hint(jl_method_instance_t *mi, size_t world)
                 return; // probably not a good idea to generate code
         // If we are saving LLVM or native code, generate the LLVM IR so that it'll
         // be included in the saved LLVM module.
+        if (jl_options.outputji) {
+            jl_options.sandbox = 1;
+        }
         jl_code_instance_t *compiledcodeinst = jl_compile_linfo(mi, src, world, &jl_default_cgparams);
+        if (jl_options.outputji) {
+            jl_options.sandbox = 0;
+        }
         //if (jl_options.sandbox) {
         if (jl_options.outputji) {
             compiledcodeinst->natived = 81;
