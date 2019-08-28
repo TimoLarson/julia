@@ -504,7 +504,7 @@ static int literal_val_id(jl_serializer_state *s, jl_value_t *v) JL_GC_DISABLED
 
 static void jl_serialize_value_cstring(jl_serializer_state *s, char *cstring) JL_GC_DISABLED
 {
-    jl_printf(JL_STDERR, "Serializing cstring\n");
+    //jl_printf(JL_STDERR, "Serializing cstring\n");
     size_t len;
     len = strlen(cstring);
     write_int32(s->s, len);
@@ -844,7 +844,7 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
         write_uint8(s->s, TAG_METHOD_INSTANCE);
         jl_method_instance_t *mi = (jl_method_instance_t*)v;
 
-        //====
+        /* //====
         jl_sym_t *name;
         if (jl_is_method(mi->def.value)) {
             name = mi->def.method->name;
@@ -859,7 +859,7 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
             jl_printf(JL_STDERR, "    Method instance, Parent: %s\n", jl_symbol_name(name));
         else
             jl_printf(JL_STDERR, "    Method instance, Parent: unrecognized\n");
-        //----
+        //---- */
 
         int internal = 0;
         if (!jl_is_method(mi->def.method))
@@ -1854,7 +1854,7 @@ static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl
         jl_module_t *module = meth->module;
 
         if (!module->libhandle)
-            module->libhandle = dlopen("/home/tim/pkg/src/puddle/shadow.so", RTLD_LAZY);
+            module->libhandle = dlopen("/home/query/pkg/src/puddle/shadow.so", RTLD_LAZY);
         void *lib = module->libhandle;
         codeinst->invoke = (jl_callptr_t)dlsym(lib, codeinst->functionObjectsDecls.functionObject);
         codeinst->specptr = (jl_generic_specptr_t)dlsym(lib, codeinst->functionObjectsDecls.specFunctionObject);
