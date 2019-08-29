@@ -3198,7 +3198,7 @@ static void jl_recache_other(arraylist_t *dependent_worlds)
     }
 }
 
-static void jl_link_shared_lib(void)
+static void jl_link_shared_lib(const char *libpath)
 {
     size_t i = 0;
     while (i < natived_list.len) {
@@ -3222,7 +3222,7 @@ static void jl_link_shared_lib(void)
         jl_module_t *module = meth->module;
 
         if (!module->libhandle)
-            module->libhandle = jl_dlopen("/home/query/pkg/src/puddle/shadow.so", JL_RTLD_DEEPBIND);
+            module->libhandle = jl_dlopen(libpath, JL_RTLD_DEEPBIND);
         void *lib = module->libhandle;
         jl_printf(JL_STDERR, "lib: %p\n", lib);
         jl_dlsym(lib, codeinst->functionObjectsDecls.functionObject, (void**)&(codeinst->invoke), 0);
@@ -3238,7 +3238,7 @@ static int trace_method(jl_typemap_entry_t *entry, void *closure)
     return 1;
 }
 
-static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array)
+static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, const char *libpath)
 {
     JL_TIMING(LOAD_MODULE);
     jl_ptls_t ptls = jl_get_ptls_states();
@@ -3317,7 +3317,7 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array)
     jl_recache_types(); // make all of the types identities correct
     jl_insert_methods((jl_array_t*)external_methods); // hook up methods of external generic functions (needs to be after recache types)
     jl_recache_other(&dependent_worlds); // make all of the other objects identities correct (needs to be after insert methods)
-    jl_link_shared_lib(); // link in shared library
+    jl_link_shared_lib(libpath); // link in shared library
     jl_array_t *init_order = jl_finalize_deserializer(&s, tracee_list); // done with f and s (needs to be after recache)
 
     JL_GC_PUSH3(&init_order, &restored, &external_backedges);
@@ -3355,17 +3355,42 @@ JL_DLLEXPORT jl_value_t *jl_restore_incremental_from_buf(const char *buf, size_t
 {
     ios_t f;
     ios_static_buffer(&f, (char*)buf, sz);
-    return _jl_restore_incremental(&f, mod_array);
+    return _jl_restore_incremental(&f, mod_array, NULL);
 }
 
 JL_DLLEXPORT jl_value_t *jl_restore_incremental(const char *fname, jl_array_t *mod_array)
 {
+    // FIXME: Non-optimal solution (understated)
+    int slash = strrchr(fname, '/') - fname + 1;
+    int dot = strrchr(fname, '.') - fname;
+    char *path = (char*)malloc(slash + 1); // freed by exiting
+    char *base = (char*)malloc(dot - slash + 1); // freed by exiting
+    strncpy(path, fname, slash);
+    path[slash] = 0;
+    strncpy(base, fname + slash, dot - slash);
+    base[dot-slash] = 0;
+
+    jl_printf(JL_STDOUT, "path [%s]\n", path);
+    jl_printf(JL_STDOUT, "base [%s]\n", base);
+
+    const char* ext = ".so";
+    char const* libpath = (char*)malloc(strlen(path) + strlen(base) + strlen(ext) + 1);
+    char *s = (char*)libpath;
+    strcpy(s, path);
+    s += strlen(path);
+    strcpy(s, base);
+    s += strlen(base);
+    strcpy(s, ext);
+    s += strlen(ext);
+    s[0] = 0;
+
+    jl_printf(JL_STDERR, "sharedlib: [%s]\n", fname);
     ios_t f;
     if (ios_file(&f, fname, 1, 0, 0, 0) == NULL) {
         return jl_get_exceptionf(jl_errorexception_type,
             "Cache file \"%s\" not found.\n", fname);
     }
-    return _jl_restore_incremental(&f, mod_array);
+    return _jl_restore_incremental(&f, mod_array, libpath);
 }
 
 // --- init ---

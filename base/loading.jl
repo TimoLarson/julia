@@ -1027,13 +1027,13 @@ function _require(pkg::PkgId)
                         verbosity = isinteractive() ? CoreLogging.Info : CoreLogging.Debug
                         @logmsg verbosity "Skipping precompilation since __precompile__(false). Importing $pkg."
                     else
-                        @warn "The call to compilecache failed to create a usable precompiled cache file for $pkg" exception=m
+                        @warn "A The call to compilecache failed to create a usable precompiled cache file for $pkg" exception=m
                     end
                     # fall-through to loading the file locally
                 else
                     m = _require_from_serialized(cachefile)
                     if isa(m, Exception)
-                        @warn "The call to compilecache failed to create a usable precompiled cache file for $pkg" exception=m
+                        @warn "B The call to compilecache failed to create a usable precompiled cache file for $pkg" exception=m
                     else
                         return
                     end
@@ -1268,6 +1268,9 @@ function compilecache(pkg::PkgId, path::String)
         open(cachefile, "a+") do f
             write(f, _crc32c(seekstart(f)))
         end
+        // Convert LLVM bc to ll
+        // Replace internal with external (this is a cludge)
+        // Compile modified ll file
     elseif p.exitcode == 125
         return PrecompilableError()
     else

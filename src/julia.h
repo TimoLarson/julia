@@ -1876,8 +1876,10 @@ typedef struct {
     const char *outputji;
     const char *output_code_coverage;
     int8_t incremental;
-    int8_t sandbox;
     int8_t image_file_specified;
+    int8_t sandbox;
+    const char *outputpath;
+    const char *outputbase;
 } jl_options_t;
 
 extern JL_DLLEXPORT jl_options_t jl_options;
