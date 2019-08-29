@@ -45,6 +45,7 @@ static jl_value_t *deser_symbols[256];
 static htable_t backref_table;
 static int backref_table_numel;
 static arraylist_t backref_list;
+static arraylist_t natived_list;
 
 // list of (jl_value_t **loc, size_t pos) entries
 // for anything that was flagged by the deserializer for later
@@ -1830,35 +1831,11 @@ static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl
     if (constret)
         codeinst->invoke = jl_fptr_const_return;
     if (natived) {
+        arraylist_push(&natived_list, codeinst);
         codeinst->functionObjectsDecls.functionObject = jl_deserialize_value_cstring(s);
         codeinst->functionObjectsDecls.specFunctionObject = jl_deserialize_value_cstring(s);
         jl_printf(JL_STDERR, "functionObject: %s\n", codeinst->functionObjectsDecls.functionObject);
         jl_printf(JL_STDERR, "specFunctionObject: %s\n", codeinst->functionObjectsDecls.specFunctionObject);
-        /*
-        jl_method_instance_t *mi = codeinst->def;
-
-        if (jl_is_method(mi->def.value)) {
-            jl_printf(JL_STDERR, "method\n");
-        }
-        else if (jl_is_module(mi->def.value)) {
-            jl_printf(JL_STDERR, "module\n");
-        }
-        else {
-            jl_printf(JL_STDERR, "other\n");
-        }
-
-
-        jl_method_t *meth = mi->def.method;
-        jl_printf(JL_STDERR, "Method: %s.\n", jl_symbol_name(meth->name));
-
-        jl_module_t *module = meth->module;
-
-        if (!module->libhandle)
-            module->libhandle = dlopen("/home/query/pkg/src/puddle/shadow.so", RTLD_LAZY);
-        void *lib = module->libhandle;
-        codeinst->invoke = (jl_callptr_t)dlsym(lib, codeinst->functionObjectsDecls.functionObject);
-        codeinst->specptr = (jl_generic_specptr_t)dlsym(lib, codeinst->functionObjectsDecls.specFunctionObject);
-        */
     }
     codeinst->next = (jl_code_instance_t*)jl_deserialize_value(s, (jl_value_t**)&codeinst->next);
     jl_gc_wb(codeinst, codeinst->next);
@@ -3243,6 +3220,39 @@ static void jl_recache_other(arraylist_t *dependent_worlds)
     }
 }
 
+static void jl_link_shared_lib(void)
+{
+    size_t i = 0;
+    while (i < natived_list.len) {
+        jl_code_instance_t *codeinst = (jl_code_instance_t*)natived_list.items[i];
+        jl_method_instance_t *mi = codeinst->def;
+
+        if (jl_is_method(mi->def.value)) {
+            jl_printf(JL_STDERR, "method\n");
+        }
+        else if (jl_is_module(mi->def.value)) {
+            jl_printf(JL_STDERR, "module\n");
+        }
+        else {
+            jl_printf(JL_STDERR, "other\n");
+        }
+
+
+        jl_method_t *meth = mi->def.method;
+        jl_printf(JL_STDERR, "Method: %s.\n", jl_symbol_name(meth->name));
+
+        jl_module_t *module = meth->module;
+
+        if (!module->libhandle)
+            module->libhandle = jl_dlopen("/home/tim/pkg/src/puddle/shadow.so", JL_RTLD_DEEPBIND);
+        void *lib = module->libhandle;
+        jl_printf(JL_STDERR, "lib: %p\n", lib);
+        jl_dlsym(lib, codeinst->functionObjectsDecls.functionObject, (void**)&(codeinst->invoke), 0);
+        jl_dlsym(lib, codeinst->functionObjectsDecls.specFunctionObject, (void**)&(codeinst->specptr), 0);
+        i += 1;
+    }
+}
+
 extern tracer_cb jl_newmeth_tracer;
 static int trace_method(jl_typemap_entry_t *entry, void *closure)
 {
@@ -3329,6 +3339,7 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array)
     jl_recache_types(); // make all of the types identities correct
     jl_insert_methods((jl_array_t*)external_methods); // hook up methods of external generic functions (needs to be after recache types)
     jl_recache_other(&dependent_worlds); // make all of the other objects identities correct (needs to be after insert methods)
+    jl_link_shared_lib(); // link in shared library
     jl_array_t *init_order = jl_finalize_deserializer(&s, tracee_list); // done with f and s (needs to be after recache)
 
     JL_GC_PUSH3(&init_order, &restored, &external_backedges);
@@ -3339,6 +3350,7 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array)
     serializer_worklist = NULL;
     arraylist_free(&flagref_list);
     arraylist_free(&backref_list);
+    arraylist_free(&natived_list);
     arraylist_free(&dependent_worlds);
     ios_close(f);
 

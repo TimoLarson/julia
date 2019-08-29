@@ -1376,11 +1376,13 @@ void jl_generate_fptr(jl_code_instance_t *output)
         return;
     }
 
-    if (codeinst->natived) {
+    if (codeinst->natived && jl_options.incremental) {
         jl_printf(JL_STDERR, "==== natived:\n");
+        jl_printf(JL_STDERR, "==== incremental: %i\n", jl_options.incremental);
+        jl_printf(JL_STDERR, "==== outputji: %s\n", jl_options.outputji);
         jl_printf(JL_STDERR, "%i ====\n", codeinst->natived);
         jl_printf(JL_STDERR, "==== Loading symbols ====\n");
-        jl_uv_libhandle lib = jl_dlopen("/home/query/pkg/src/puddle/sample.so", JL_RTLD_LAZY);
+        jl_uv_libhandle lib = jl_dlopen("/home/tim/pkg/src/puddle/sample.so", JL_RTLD_LAZY);
 
         jl_printf(JL_STDERR, "==== Symbol: %s ====\n", codeinst->functionObjectsDecls.functionObject);
         jl_dlsym(lib, codeinst->functionObjectsDecls.functionObject, (void**)&(codeinst->invoke), 1);

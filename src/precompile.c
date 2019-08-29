@@ -27,7 +27,7 @@ extern void *shadow_output;
 // For saving shared object related data
 JL_DLLEXPORT int jl_shadow_output_to_bc(void)
 {
-    char const* fname = "/home/query/pkg/src/puddle/shadow.bc";
+    char const* fname = "/home/tim/pkg/src/puddle/shadow.bc";
     //jl_write_bitcode_module((void*)shadow_output, const_cast<char*>(fname));
     jl_write_bitcode_module((void*)shadow_output, (char*)fname);
     return 0;
