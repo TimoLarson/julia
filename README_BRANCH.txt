@@ -14,13 +14,10 @@ Augment the serializer to:
 * Collect code and compile a native shared library.
   This can be stored next to the package's ji file.
 
-Augment the deserializer to:
-* When loading jl_module to load the libpath, dlopen the module shared library, if any,
-  and save its handle in libhandle.
-  [Not loading the libpath yet. Opening the shared library elsewhere.]
-* When loading jl_code_instance if function names are present look them up in the module's
-  shared library and link them into the code instance.
-
-Symbol (function) lookup and linking could happen on
-demand rather than during deserialization.
+When deserializing:
+* For a code instance with the natived flag is set load function names and push code
+  the coe instance onto a list to be resolved later.
+* After the code instance is fully connected open the shared library and link the
+  functions from the shared library into the code instance.
+  [This could instead be done in a lazy manner on first use of a function.]
 

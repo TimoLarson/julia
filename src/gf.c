@@ -2011,10 +2011,10 @@ jl_method_instance_t *jl_get_specialization1(jl_tupletype_t *types JL_PROPAGATES
 
 static void _generate_from_hint(jl_method_instance_t *mi, size_t world)
 {
-    if (jl_options.outputji)
+    if (jl_options.outputji && jl_options.incremental)
         jl_printf(JL_STDERR, "in _generate_from_hint sandbox: %i outputji: %s\n", jl_options.sandbox, jl_options.outputji);
     //int generating_llvm = jl_options.outputo || jl_options.outputbc || jl_options.outputunoptbc || jl_options.sandbox;
-    int generating_llvm = jl_options.outputo || jl_options.outputbc || jl_options.outputunoptbc || jl_options.outputji;
+    int generating_llvm = jl_options.outputo || jl_options.outputbc || jl_options.outputunoptbc || (jl_options.outputji && jl_options.incremental);
     jl_code_info_t *src = NULL;
     // If we are saving ji files (e.g. package pre-compilation or intermediate sysimg build steps),
     // don't bother generating anything since it won't be saved.
@@ -2027,22 +2027,14 @@ static void _generate_from_hint(jl_method_instance_t *mi, size_t world)
                 return; // probably not a good idea to generate code
         // If we are saving LLVM or native code, generate the LLVM IR so that it'll
         // be included in the saved LLVM module.
-        if (jl_options.outputji) {
+        if (jl_options.outputji)
             jl_options.sandbox = 1;
-        }
         jl_code_instance_t *compiledcodeinst = jl_compile_linfo(mi, src, world, &jl_default_cgparams);
         if (jl_options.outputji) {
-            jl_options.sandbox = 0;
-        }
-        //if (jl_options.sandbox) {
-        if (jl_options.outputji) {
-            compiledcodeinst->natived = 81;
+            compiledcodeinst->natived = 1;
             jl_printf(JL_STDERR, "Marked as natived:\n");
             jl_printf(JL_STDERR, "%s\n", jl_symbol_name(mi->def.method->name)); 
-        }
-        else {
-            //jl_printf(JL_STDERR, "Would have marked as natived:\n");
-            //jl_printf(JL_STDERR, "%s\n", jl_symbol_name(mi->def.method->name)); 
+            jl_options.sandbox = 0;
         }
     }
 }

@@ -844,24 +844,6 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
     else if (jl_is_method_instance(v)) {
         write_uint8(s->s, TAG_METHOD_INSTANCE);
         jl_method_instance_t *mi = (jl_method_instance_t*)v;
-
-        /* //====
-        jl_sym_t *name;
-        if (jl_is_method(mi->def.value)) {
-            name = mi->def.method->name;
-        }
-        else if (jl_is_module(mi->def.value)) {
-            name = mi->def.module->name;
-        }
-        else {
-            name = NULL;
-        }
-        if (name)
-            jl_printf(JL_STDERR, "    Method instance, Parent: %s\n", jl_symbol_name(name));
-        else
-            jl_printf(JL_STDERR, "    Method instance, Parent: unrecognized\n");
-        //---- */
-
         int internal = 0;
         if (!jl_is_method(mi->def.method))
             internal = 1;
@@ -1813,12 +1795,7 @@ static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl
     int constret = (flags >> 2) & 1;
     int natived = (flags >> 3) & 1;
 
-    codeinst->natived = natived;
-    if (codeinst->natived)
-        codeinst->natived = 47;
-
-    jl_printf(JL_STDERR, "jl_deserialize_value_code_instance natived: %i\n", natived);
-
+    codeinst->natived = natived; // function pointers will be linked from a package shared library
     codeinst->def = (jl_method_instance_t*)jl_deserialize_value(s, (jl_value_t**)&codeinst->def);
     jl_gc_wb(codeinst, codeinst->def);
     codeinst->inferred = jl_deserialize_value(s, &codeinst->inferred);
@@ -1831,6 +1808,7 @@ static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl
     if (constret)
         codeinst->invoke = jl_fptr_const_return;
     if (natived) {
+        // Record function names and put this code instance on a list to be linked later
         arraylist_push(&natived_list, codeinst);
         codeinst->functionObjectsDecls.functionObject = jl_deserialize_value_cstring(s);
         codeinst->functionObjectsDecls.specFunctionObject = jl_deserialize_value_cstring(s);
@@ -3244,7 +3222,7 @@ static void jl_link_shared_lib(void)
         jl_module_t *module = meth->module;
 
         if (!module->libhandle)
-            module->libhandle = jl_dlopen("/home/tim/pkg/src/puddle/shadow.so", JL_RTLD_DEEPBIND);
+            module->libhandle = jl_dlopen("/home/query/pkg/src/puddle/shadow.so", JL_RTLD_DEEPBIND);
         void *lib = module->libhandle;
         jl_printf(JL_STDERR, "lib: %p\n", lib);
         jl_dlsym(lib, codeinst->functionObjectsDecls.functionObject, (void**)&(codeinst->invoke), 0);

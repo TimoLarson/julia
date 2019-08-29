@@ -1224,25 +1224,11 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
                     jl_add_code_in_flight(f, codeinst, DL);
             }
 
-            //if (jl_options.outputji) {
-            //    jl_printf(JL_STDERR, "Compiled: %s\n", jl_symbol_name(mi->def.method->name));
-            //    codeinst->natived = 1;
-            //}
-
-            if (jl_options.outputji) {
-                if (jl_options.sandbox) {
-                    // Step 5. Add the result to the execution engine now
-                    jl_finalize_module(m.release(), !toplevel);
-                }
-                else {
-                    // Step 5. Add the result to the execution engine now
-                    jl_finalize_module(m.release(), 0);
-                }
-            }
-            else {
-                // Step 5. Add the result to the execution engine now
-                jl_finalize_module(m.release(), !toplevel);
-            }
+            // Step 5. Add the result to the execution engine now
+            jl_finalize_module(m.release(), !toplevel &&
+                // Suppress adding to shadow module when making a shared library
+                // unless the function is marked for precompilation.
+                !(jl_options.outputji && jl_options.incremental && !jl_options.sandbox));
         }
 
         if (// don't alter `inferred` when the code is not directly being used
@@ -1376,13 +1362,10 @@ void jl_generate_fptr(jl_code_instance_t *output)
         return;
     }
 
-    if (codeinst->natived && jl_options.incremental) {
-        jl_printf(JL_STDERR, "==== natived:\n");
-        jl_printf(JL_STDERR, "==== incremental: %i\n", jl_options.incremental);
-        jl_printf(JL_STDERR, "==== outputji: %s\n", jl_options.outputji);
-        jl_printf(JL_STDERR, "%i ====\n", codeinst->natived);
+    // FIXME: This should happen just because of codeinst->natived
+    if (codeinst->natived && jl_options.incremental && jl_options.outputji) {
         jl_printf(JL_STDERR, "==== Loading symbols ====\n");
-        jl_uv_libhandle lib = jl_dlopen("/home/tim/pkg/src/puddle/sample.so", JL_RTLD_LAZY);
+        jl_uv_libhandle lib = jl_dlopen("/home/query/pkg/src/puddle/sample.so", JL_RTLD_LAZY);
 
         jl_printf(JL_STDERR, "==== Symbol: %s ====\n", codeinst->functionObjectsDecls.functionObject);
         jl_dlsym(lib, codeinst->functionObjectsDecls.functionObject, (void**)&(codeinst->invoke), 1);
