@@ -1,0 +1,73 @@
+
+
+jl_shadow_output_to_bc <src/precompile.c>
+    calls:
+        jl_write_bitcode_module <src/codegen.cpp>
+    purpose:
+        to write shadow_output to a *.bc file.
+
+
+jl_compile_linfo <src/codegen.cpp>
+    calls:
+        emit_function <src/codegen.cpp>
+        jl_finalize_module <src/jitlayers.cpp>
+    purpose:
+        Compile a function if not already compiled
+        and cause it to be added to the jit
+        and sometimes to the shadow_output.
+
+
+emit_function <src/codegen.cpp>
+    called by:
+        jl_compile_linfo <src/codegen.cpp>
+        jl_get_llvmf_defn <src/codegen.cpp>
+    purpose:
+        Converts a jl_method_instance to a jl_module_t
+
+
+jl_finalize_module <src/jitlayers.cpp>
+    called by:
+        jl_compile_linfo <src/codegen.cpp>
+    purpose:
+        Add a module (really a function) to the jit
+        and sometimes to the shadow_output.
+
+
+code_llvm
+    jl_dump_function_ir
+
+segfault accessing a global variable
+    jl_dump_native
+
+
+
+
+later look at jl_extern_c to see how ExternalLinkage is done
+
+
+
+
+
+for each precompiled method instance emit a function and wrapper
+combine resulting modules
+run them through the pass manager and output a shared library
+
+
+could instrument each time something goes in the shadow_output
+
+
+
+
+open questions
+how to get functions to be created as external instead of internal
+how to get functions to be output without the thread local storage code (for now)
+how to link to functions in the system image
+how to link to functions in other julia shared libraries
+
+the parameter declarations contains them on return
+how can we get the names from emit_function <src/codegen.cpp>?
+how can we get the names from emit_function <src/codegen.cpp>?
+the parameter declarations contains them on return
+how can we get the names from emit_function <src/codegen.cpp>?
+
+
