@@ -1225,10 +1225,10 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             }
 
             // Step 5. Add the result to the execution engine now
-            jl_finalize_module(m.release(), !toplevel &&
+            jl_finalize_module(m.release(), !toplevel); // &&
                 // Suppress adding to shadow module when making a shared library
                 // unless the function is marked for precompilation.
-                !(jl_options.outputji && jl_options.incremental && !jl_options.sandbox));
+                //!(jl_options.outputji && jl_options.incremental && !jl_options.sandbox));
         }
 
         if (// don't alter `inferred` when the code is not directly being used
