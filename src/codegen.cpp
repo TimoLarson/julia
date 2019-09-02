@@ -7814,6 +7814,7 @@ extern void jl_write_bitcode_func(void *F, char *fname) {
 extern void jl_write_bitcode_module(void *M, char *fname) {
     std::error_code EC;
     raw_fd_ostream OS(fname, EC, sys::fs::F_None);
+    jl_globalPM->run(*(Module*)M);
 #if JL_LLVM_VERSION >= 70000
     llvm::WriteBitcodeToFile(*(llvm::Module*)M, OS);
 #else

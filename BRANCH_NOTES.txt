@@ -1,4 +1,10 @@
 
+code_llvm <stdlib/InteractiveUtils/src/codeview.jl>
+
+jl_fptr_to_llvm <src/codegen.cpp>
+
+jl_get_llvmf_defn <src/codegen.cpp>
+    uses pass manager
 
 jl_shadow_output_to_bc <src/precompile.c>
     calls:
@@ -54,9 +60,15 @@ run them through the pass manager and output a shared library
 
 
 could instrument each time something goes in the shadow_output
+how are variables declared?
+how are variables initialized?
+how are variables made available to functions?
 
-
-
+how should loading a native precompiled package be different
+from loading the system image?
+does it need to be unloadable? if so, when?
+I think we can leave it loaded...and let Revise just replace
+function pointers individually at runtime.
 
 open questions
 how to get functions to be created as external instead of internal
