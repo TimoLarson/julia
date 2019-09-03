@@ -2799,18 +2799,19 @@ JL_DLLEXPORT jl_value_t *jl_uncompress_argname_n(jl_value_t *syms, size_t i)
     return jl_nothing;
 }
 
+
 JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
 {
     JL_TIMING(SAVE_MODULE);
+
+    // DEBUG
+    jl_printf(JL_STDERR, "in jl_save_incremental: %s\n", fname);
+
     char *tmpfname = strcat(strcpy((char *) alloca(strlen(fname)+8), fname), ".XXXXXX");
-
-    jl_options.sandbox = 1;
-
     ios_t f;
     jl_array_t *mod_array = NULL, *udeps = NULL;
     if (ios_mkstemp(&f, tmpfname) == NULL) {
         jl_printf(JL_STDERR, "Cannot open cache file \"%s\" for writing.\n", tmpfname);
-        jl_options.sandbox = 0;
         return 1;
     }
     JL_GC_PUSH2(&mod_array, &udeps);
@@ -2926,11 +2927,8 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
     JL_GC_POP();
     if (jl_fs_rename(tmpfname, fname) < 0) {
         jl_printf(JL_STDERR, "Cannot write cache file \"%s\".\n", fname);
-        jl_options.sandbox = 0;
         return 1;
     }
-
-    jl_options.sandbox = 0;
 
     return 0;
 }
@@ -3215,13 +3213,12 @@ static int trace_method(jl_typemap_entry_t *entry, void *closure)
 static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, const char *libpath)
 {
     JL_TIMING(LOAD_MODULE);
+
+    jl_printf(JL_STDERR, "in _jl_restore_incremental %s.\n", libpath);
+
     jl_ptls_t ptls = jl_get_ptls_states();
-
-    //jl_options.sandbox = 1;
-
     if (ios_eof(f) || !jl_read_verify_header(f)) {
         ios_close(f);
-        //jl_options.sandbox = 0;
         return jl_get_exceptionf(jl_errorexception_type,
                 "Precompile file header verification checks failed.");
     }
@@ -3250,7 +3247,6 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
     if (verify_fail) {
         arraylist_free(&dependent_worlds);
         ios_close(f);
-        //jl_options.sandbox = 0;
         return verify_fail;
     }
 
@@ -3315,8 +3311,6 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
     }
     jl_value_t *ret = (jl_value_t*)jl_svec(2, restored, init_order);
     JL_GC_POP();
-
-    //jl_options.sandbox = 0;
 
     return (jl_value_t*)ret;
 }

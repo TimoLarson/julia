@@ -1229,7 +1229,42 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             }
 
             // Step 5. Add the result to the execution engine now
-            jl_finalize_module(m.release(), !toplevel);
+
+            // Decide which methods to bundle into the shared library and show some debugging info
+            bool bundle = false; 
+            if (jl_options.outputji && jl_options.incremental) {
+                jl_method_t *_method = mi->def.method;
+                if (jl_is_method(_method)) {
+                    jl_module_t *_module = _method->module;
+                    if (_module && _module->parent == _module && (
+                            !strcmp("PkgA", jl_symbol_name(_module->name)) ||
+                            !strcmp("PkgB", jl_symbol_name(_module->name))
+                            )) {
+                        bundle = true;
+
+                        if (jl_options.outputji && jl_options.incremental) {
+                            jl_printf(JL_STDERR, "Adding to shadow (%i, %i) %s %s\n", jl_options.sandbox, !toplevel, f, specf);
+                            jl_method_t *_method = mi->def.method;
+                            if (jl_is_method(_method)) {
+                                jl_printf(JL_STDERR, "Method: %s\n", jl_symbol_name(_method->name));
+                                jl_module_t *_module = _method->module;
+                                while(_module) {
+                                    jl_printf(JL_STDERR, "Module: %s\n", jl_symbol_name(_module->name));
+                                    if (_module == _module->parent) {
+                                        jl_printf(JL_STDERR, "Module: <itself>\n");
+                                        _module = NULL;
+                                    }
+                                    else {
+                                        _module = _module->parent;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            jl_finalize_module(m.release(), !toplevel && bundle);
         }
 
         if (// don't alter `inferred` when the code is not directly being used

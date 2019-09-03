@@ -1,0 +1,33 @@
+
+Record when a function is being compiled
+Record when a variable is being compiled
+Record when a call to a function in another module is being compiled
+
+something triggers compilecache
+compilecache->create_expr_cache
+
+Each environment gets its own precompile cache for all its packages,
+so you may see multiple precompile caches for a package.
+
+Looks like every package in an environment gets re-precompiled when the
+main package gets re-precompiled.
+
+jl_write_compiler_output <src/precompile.c>
+    jl_compile_hint <src/gf.c>
+        jl_compile_now <src/gf.c>
+            _generate_from_hint <src/gf.c>
+                set sandbox flag
+                jl_compile_linfo <codegen.cpp>
+                    jl_finalize_module <jitlayers.cpp>
+                        jl_add_to_shadow <jitlayers.cpp>
+                            decides based on sandbox flag
+                unset sandbox flag
+
+jl_write_compiler_output <src/precompile.c> [if !jl_options.incremental]
+    jl_precompile <src/precompile.c>
+        jl_compile_all_defs <src/precompile.c>
+            _compile_all_deq <src/precompile.c>
+                _compile_all_union <src/precompile.c>
+                    _compile_all_tvar_union <src/precompile.c>
+                        jl_compile_hint <src/gf.c> [see tree above]
+
