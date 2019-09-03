@@ -3199,8 +3199,8 @@ static void jl_link_shared_lib(const char *libpath)
         if (!module->libhandle)
             module->libhandle = jl_dlopen(libpath, JL_RTLD_DEEPBIND);
         void *lib = module->libhandle;
-        jl_dlsym(lib, codeinst->functionObjectsDecls.functionObject, (void**)&(codeinst->invoke), 0);
-        jl_dlsym(lib, codeinst->functionObjectsDecls.specFunctionObject, (void**)&(codeinst->specptr), 0);
+        jl_dlsym(lib, codeinst->functionObjectsDecls.functionObject, (void**)&(codeinst->invoke), 1);
+        jl_dlsym(lib, codeinst->functionObjectsDecls.specFunctionObject, (void**)&(codeinst->specptr), 1);
         i += 1;
     }
 }
@@ -3217,11 +3217,11 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
     JL_TIMING(LOAD_MODULE);
     jl_ptls_t ptls = jl_get_ptls_states();
 
-    jl_options.sandbox = 1;
+    //jl_options.sandbox = 1;
 
     if (ios_eof(f) || !jl_read_verify_header(f)) {
         ios_close(f);
-        jl_options.sandbox = 0;
+        //jl_options.sandbox = 0;
         return jl_get_exceptionf(jl_errorexception_type,
                 "Precompile file header verification checks failed.");
     }
@@ -3250,7 +3250,7 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
     if (verify_fail) {
         arraylist_free(&dependent_worlds);
         ios_close(f);
-        jl_options.sandbox = 0;
+        //jl_options.sandbox = 0;
         return verify_fail;
     }
 
@@ -3316,7 +3316,7 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
     jl_value_t *ret = (jl_value_t*)jl_svec(2, restored, init_order);
     JL_GC_POP();
 
-    jl_options.sandbox = 0;
+    //jl_options.sandbox = 0;
 
     return (jl_value_t*)ret;
 }
