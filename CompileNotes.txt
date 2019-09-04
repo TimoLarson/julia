@@ -10,7 +10,18 @@ Each environment gets its own precompile cache for all its packages,
 so you may see multiple precompile caches for a package.
 
 Looks like every package in an environment gets re-precompiled when the
-main package gets re-precompiled.
+main package gets re-precompiled.  Will need to address this to reduce
+redundant native compilation.
+
+Need to do cleanup on old native compile files in the precompilation dirs.
+
+Currently native compiling packages PkgA, PkgB, PkgC.
+Need to replace this hard coding with native compilation of the module of
+the current ji file.
+
+Need to also support native compilation of code for previously loaded
+modules. This will require different linking code, probably driven by
+the specialization signatures.
 
 jl_write_compiler_output <src/precompile.c>
     jl_compile_hint <src/gf.c>
