@@ -3195,7 +3195,7 @@ static void jl_link_shared_lib(const char *libpath)
         jl_module_t *module = meth->module;
 
         if (!module->libhandle)
-            module->libhandle = jl_dlopen(libpath, JL_RTLD_DEEPBIND);
+            module->libhandle = jl_dlopen(libpath, JL_RTLD_GLOBAL | JL_RTLD_DEEPBIND);
         void *lib = module->libhandle;
         jl_dlsym(lib, codeinst->functionObjectsDecls.functionObject, (void**)&(codeinst->invoke), 1);
         jl_dlsym(lib, codeinst->functionObjectsDecls.specFunctionObject, (void**)&(codeinst->specptr), 1);
