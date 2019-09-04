@@ -1190,7 +1190,7 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
         nested_compile = true;
 
         bool sharedlib = false;
-        bool bundle = false; 
+        bool bundle = true; 
         if (jl_options.outputji && jl_options.incremental) {
             sharedlib = true;
             // Decide which methods to bundle into the shared library and show some debugging info
