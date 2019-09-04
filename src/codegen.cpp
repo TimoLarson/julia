@@ -1200,7 +1200,8 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
                     jl_module_t *_module = _method->module;
                     if (_module && _module->parent == _module && (
                             !strcmp("PkgA", jl_symbol_name(_module->name)) ||
-                            !strcmp("PkgB", jl_symbol_name(_module->name))
+                            !strcmp("PkgB", jl_symbol_name(_module->name)) ||
+                            !strcmp("PkgC", jl_symbol_name(_module->name))
                             )) {
                         bundle = true;
 
