@@ -1173,6 +1173,7 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             jl_code_instance_t *uncached = (jl_code_instance_t*)jl_gc_alloc(ptls, sizeof(jl_code_instance_t),
                     jl_code_instance_type);
             *uncached = *codeinst;
+            uncached->natived = 0;
             uncached->functionObjectsDecls.functionObject = NULL;
             uncached->functionObjectsDecls.specFunctionObject = NULL;
             uncached->inferred = jl_nothing;
@@ -1187,6 +1188,8 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
         if (!nested_compile && dump_compiles_stream != NULL)
             last_time = jl_hrtime();
         nested_compile = true;
+
+        bool sharedlib = jl_options.outputji && jl_options.incremental;
 
         // Step 3. actually do the work of emitting the function
         std::unique_ptr<Module> m;
@@ -1229,6 +1232,10 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
 
             // Step 5. Add the result to the execution engine now
             jl_finalize_module(m.release(), !toplevel);
+
+            // Mark this code instance as having been native compiled
+            if (!toplevel && sharedlib && addtolib)
+                codeinst->natived = 1;
         }
 
         if (// don't alter `inferred` when the code is not directly being used
@@ -7820,6 +7827,7 @@ extern void jl_write_bitcode_func(void *F, char *fname) {
 extern void jl_write_bitcode_module(void *M, char *fname) {
     std::error_code EC;
     raw_fd_ostream OS(fname, EC, sys::fs::F_None);
+    jl_globalPM->run(*(Module*)M);
 #if JL_LLVM_VERSION >= 70000
     llvm::WriteBitcodeToFile(*(llvm::Module*)M, OS);
 #else

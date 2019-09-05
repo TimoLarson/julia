@@ -24,6 +24,8 @@
 extern "C" {
 #endif
 
+extern size_t addtolib; // defined in src/jitlayers.cpp
+
 JL_DLLEXPORT size_t jl_world_counter = 1;
 JL_DLLEXPORT size_t jl_get_world_counter(void)
 {
@@ -281,6 +283,7 @@ JL_DLLEXPORT jl_code_instance_t *jl_set_method_inferred(
     jl_code_instance_t *codeinst = (jl_code_instance_t*)jl_gc_alloc(ptls, sizeof(jl_code_instance_t),
             jl_code_instance_type);
     JL_GC_PUSH1(&codeinst);
+    codeinst->natived = 0;
     codeinst->def = mi;
     codeinst->min_world = min_world;
     codeinst->max_world = max_world;
@@ -1986,7 +1989,7 @@ jl_method_instance_t *jl_get_specialization1(jl_tupletype_t *types JL_PROPAGATES
 
 static void _generate_from_hint(jl_method_instance_t *mi, size_t world)
 {
-    int generating_llvm = jl_options.outputo || jl_options.outputbc || jl_options.outputunoptbc;
+    int generating_llvm = jl_options.outputo || jl_options.outputbc || jl_options.outputunoptbc || (jl_options.outputji && jl_options.incremental);
     jl_code_info_t *src = NULL;
     // If we are saving ji files (e.g. package pre-compilation or intermediate sysimg build steps),
     // don't bother generating anything since it won't be saved.
@@ -1999,7 +2002,13 @@ static void _generate_from_hint(jl_method_instance_t *mi, size_t world)
                 return; // probably not a good idea to generate code
         // If we are saving LLVM or native code, generate the LLVM IR so that it'll
         // be included in the saved LLVM module.
-        (void)jl_compile_linfo(mi, src, world, &jl_default_cgparams);
+        if (jl_options.outputji)
+            addtolib += 1;
+        jl_code_instance_t *compiledcodeinst = jl_compile_linfo(mi, src, world, &jl_default_cgparams);
+        if (jl_options.outputji) {
+            compiledcodeinst->natived = 1;
+            addtolib -= 1;
+        }
     }
 }
 
