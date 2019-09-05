@@ -19,6 +19,7 @@
 
 extern "C" {
     extern int globalUnique;
+    extern size_t addtolib;
 }
 extern TargetMachine *jl_TargetMachine;
 extern Module *shadow_output;
@@ -81,6 +82,14 @@ void jl_compile_workqueue(
 
 Function *jl_cfunction_object(jl_function_t *f, jl_value_t *rt, jl_tupletype_t *argt,
     jl_codegen_params_t &params);
+
+//void** jl_emit_and_add_to_shadow(GlobalVariable *gv, void *gvarinit = NULL);
+//void* jl_get_globalvar(GlobalVariable *gv);
+//GlobalVariable *jl_get_global_for(const char *cname, void *addr, Module *M, char *nativeName);
+//char *jl_get_global_native_name(const char *cname, void *addr);
+//char *jl_get_global_native_name_for_value(jl_value_t *val);
+//void jl_add_to_shadow(Module *m);
+//void jl_finalize_module(Module *m, bool shadow);
 
 // Connect Modules via prototypes, each owned by module `M`
 static inline GlobalVariable *global_proto(GlobalVariable *G, Module *M = NULL)

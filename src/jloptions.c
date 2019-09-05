@@ -71,7 +71,9 @@ jl_options_t jl_options = { 0,    // quiet
                             NULL,    // output-code_coverage
                             0, // incremental
                             0, // image_file_specified
-                            JL_OPTIONS_WARN_SCOPE_ON  // ambiguous scope warning
+                            JL_OPTIONS_WARN_SCOPE_ON,  // ambiguous scope warning
+                            NULL, // outputpath
+                            NULL // outputbase
 };
 
 static const char usage[] = "julia [switches] -- [programfile] [args...]\n";
@@ -527,6 +529,18 @@ restart_switch:
         case opt_output_ji:
             jl_options.outputji = optarg;
             if (!jl_options.image_file_specified) jl_options.image_file = NULL;
+
+            int slash = strrchr(optarg, '/') - optarg + 1;
+            int dot = strrchr(optarg, '.') - optarg;
+            char *path = (char*)malloc(slash + 1); // freed by exiting
+            char *base = (char*)malloc(dot - slash + 1); // freed by exiting
+            strncpy(path, optarg, slash);
+            path[slash] = 0;
+            strncpy(base, optarg + slash, dot - slash);
+            base[dot-slash] = 0;
+
+            jl_options.outputpath = path;
+            jl_options.outputbase = base;
             break;
         case opt_incremental:
             if (!strcmp(optarg,"yes"))

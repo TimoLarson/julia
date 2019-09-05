@@ -2197,7 +2197,7 @@ void jl_init_types(void) JL_GC_DISABLED
     jl_code_instance_type =
         jl_new_datatype(jl_symbol("CodeInstance"), core,
                         jl_any_type, jl_emptysvec,
-                        jl_perm_symsvec(10,
+                        jl_perm_symsvec(13,
                             "def",
                             "next",
                             "min_world",
@@ -2207,8 +2207,10 @@ void jl_init_types(void) JL_GC_DISABLED
                             "inferred",
                             //"edges",
                             //"absolute_max",
-                            "isspecsig", "invoke", "specptr"), // function object decls
-                        jl_svec(10,
+                            "isspecsig", "invoke", "specptr", // function object decls
+                            "functionObject", "specFunctionObject", // function object names
+                            "natived"),
+                        jl_svec(13,
                             jl_method_instance_type,
                             jl_any_type,
                             jl_ulong_type,
@@ -2219,7 +2221,9 @@ void jl_init_types(void) JL_GC_DISABLED
                             //jl_any_type,
                             //jl_bool_type,
                             jl_bool_type,
-                            jl_any_type, jl_any_type), // fptrs
+                            jl_any_type, jl_any_type, // fptrs
+                            jl_any_type, jl_any_type,
+                            jl_uint8_type),
                         0, 1, 1);
     jl_svecset(jl_code_instance_type->types, 1, jl_code_instance_type);
 

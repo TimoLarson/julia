@@ -356,6 +356,11 @@ typedef struct _jl_code_instance_t {
     uint8_t isspecsig; // if specptr is a specialized function signature for specTypes->rettype
     jl_callptr_t invoke; // jlcall entry point
     jl_generic_specptr_t specptr; // private data for `jlcall entry point`
+    // names of declarations in the JIT,
+    // suitable for referencing in LLVM IR
+    const char *functionObject;
+    const char *specFunctionObject;
+    uint8_t natived;
 } jl_code_instance_t;
 
 // all values are callable as Functions
@@ -497,6 +502,8 @@ typedef struct _jl_module_t {
     int32_t nospecialize;  // global bit flags: initialization for new methods
     uint8_t istopmod;
     jl_mutex_t lock;
+    char *libpath;
+    void *libhandle;
 } jl_module_t;
 
 // one Type-to-Value entry
@@ -1929,6 +1936,8 @@ typedef struct {
     int8_t incremental;
     int8_t image_file_specified;
     int8_t warn_scope;
+    const char *outputpath;
+    const char *outputbase;
 } jl_options_t;
 
 extern JL_DLLEXPORT jl_options_t jl_options;

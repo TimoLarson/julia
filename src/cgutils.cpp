@@ -509,7 +509,7 @@ static Value *julia_binding_gv(jl_codectx_t &ctx, jl_binding_t *b)
     // emit a literal_pointer_val to the value field of a jl_binding_t
     // binding->value are prefixed with *
     Value *bv;
-    if (imaging_mode)
+    if (imaging_mode || (jl_options.outputji && jl_options.incremental))
         bv = emit_bitcast(ctx,
                 tbaa_decorate(tbaa_const,
                               ctx.builder.CreateLoad(T_pjlvalue, julia_pgv(ctx, "*", b->name, b->owner, b))),

@@ -1038,6 +1038,34 @@ static jl_cgval_t convert_julia_type(jl_codectx_t &ctx, const jl_cgval_t &v, jl_
     return jl_cgval_t(v, typ, new_tindex);
 }
 
+/*
+// this generates llvm code for the lambda info
+// and adds the result to the jitlayers
+// (and the shadow module), but doesn't yet compile
+// or generate object code for it
+extern "C"
+jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *src, size_t world, const jl_cgparams_t *params)
+{
+                jl_llvm_functions_t decls = codeinst->functionObjectsDecls;
+                bool already_compiled = params->cached && decls.functionObject != NULL;
+            uncached->functionObjectsDecls.functionObject = NULL;
+            uncached->functionObjectsDecls.specFunctionObject = NULL;
+        bool sharedlib = jl_options.outputji && jl_options.incremental;
+        // Step 3. actually do the work of emitting the function
+            m = emit_function(mi, src, codeinst->rettype, world, &codeinst->functionObjectsDecls, params);
+        jl_llvm_functions_t decls = codeinst->functionObjectsDecls;
+        const char *f = decls.functionObject;
+        const char *specf = decls.specFunctionObject;
+
+            // Step 5. Add the result to the execution engine now
+            jl_finalize_module(m.release(), !toplevel);
+
+            // Mark this code instance as having been native compiled
+            if (!toplevel && sharedlib && addtolib)
+                codeinst->natived = 1;
+        }
+*/
+
 static void jl_setup_module(Module *m, const jl_cgparams_t *params = &jl_default_cgparams)
 {
     if (JL_HOOK_TEST(params, module_setup)) {
@@ -2896,7 +2924,7 @@ static Value *global_binding_pointer(jl_codectx_t &ctx, jl_module_t *m, jl_sym_t
             name << "delayedvar" << globalUnique++;
             Constant *initnul = V_null;
             GlobalVariable *bindinggv = new GlobalVariable(*ctx.f->getParent(), T_pjlvalue,
-                    false, GlobalVariable::InternalLinkage,
+                    false, GlobalVariable::ExternalLinkage,
                     initnul, name.str());
             Value *cachedval = ctx.builder.CreateLoad(T_pjlvalue, bindinggv);
             BasicBlock *have_val = BasicBlock::Create(jl_LLVMContext, "found"),
@@ -2922,6 +2950,8 @@ static Value *global_binding_pointer(jl_codectx_t &ctx, jl_module_t *m, jl_sym_t
     }
     if (pbnd)
         *pbnd = b;
+    if (strstr(jl_symbol_name(s), "chipmunk"))
+        printf("global_binding_pointer: %s\n", jl_symbol_name(s));
     return julia_binding_gv(ctx, b);
 }
 
@@ -3041,6 +3071,8 @@ static jl_cgval_t emit_isdefined(jl_codectx_t &ctx, jl_value_t *sym)
         if (bnd) {
             if (bnd->value != NULL)
                 return mark_julia_const(jl_true);
+            if (strstr(jl_symbol_name((jl_sym_t*)sym), "chipmunk"))
+                printf("emit_isdefined: %s\n", jl_symbol_name((jl_sym_t*)sym));
             Value *bp = julia_binding_gv(ctx, bnd);
             Instruction *v = ctx.builder.CreateLoad(T_prjlvalue, bp);
             tbaa_decorate(tbaa_binding, v);
@@ -3635,6 +3667,8 @@ static jl_cgval_t emit_expr(jl_codectx_t &ctx, jl_value_t *expr, ssize_t ssaval)
             if (isglobalref) {
                 mod = jl_globalref_mod(mn);
                 mn = (jl_value_t*)jl_globalref_name(mn);
+                if (strstr(jl_symbol_name((jl_sym_t*)mn), "chipmunk"))
+                    printf("isglobalref: %s\n", jl_symbol_name((jl_sym_t*)mn));
             }
             JL_TRY {
                 if (jl_symbol_name((jl_sym_t*)mn)[0] == '@')
@@ -3651,6 +3685,8 @@ static jl_cgval_t emit_expr(jl_codectx_t &ctx, jl_value_t *expr, ssize_t ssaval)
                 raise_exception(ctx, literal_pointer_val(ctx, e));
                 return ghostValue(jl_nothing_type);
             }
+            if (strstr(jl_symbol_name((jl_sym_t*)mn), "chipmunk"))
+                printf("in emit_expr: %s\n", jl_symbol_name((jl_sym_t*)mn));
             bp = julia_binding_gv(ctx, bnd);
             bp_owner = literal_pointer_val(ctx, (jl_value_t*)mod);
         }
@@ -7581,5 +7617,6 @@ extern void jl_write_bitcode_func(void *F, char *fname) {
 extern void jl_write_bitcode_module(void *M, char *fname) {
     std::error_code EC;
     raw_fd_ostream OS(fname, EC, sys::fs::F_None);
+    //jl_globalPM->run(*(Module*)M);
     llvm::WriteBitcodeToFile(*(llvm::Module*)M, OS);
 }

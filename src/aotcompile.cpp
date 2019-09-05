@@ -112,6 +112,22 @@ typedef struct {
 } jl_native_code_desc_t;
 
 extern "C" JL_DLLEXPORT
+char *jl_get_global_native_name(char *name, void *owner, void *addr)
+{
+    GlobalVariable *gv = jl_get_global_for(name, addr, (Module*)owner, NULL);
+    return (char*)gv->getName().str().c_str();
+}
+
+extern "C" JL_DLLEXPORT
+char *jl_get_global_native_name_for_value(jl_value_t *val)
+{
+    Value *gv = jl_get_llvm_gv_ptr(val);
+    if (!gv)
+        return 0;
+    return (char*)gv->getName().str().c_str();
+}
+
+extern "C" JL_DLLEXPORT
 void jl_get_function_id(void *native_code, jl_code_instance_t *codeinst,
         int32_t *func_idx, int32_t *specfunc_idx)
 {

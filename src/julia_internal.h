@@ -619,6 +619,9 @@ void jl_dump_native(void *native_code,
 int32_t jl_get_llvm_gv(void *native_code, jl_value_t *p) JL_NOTSAFEPOINT;
 void jl_get_function_id(void *native_code, jl_code_instance_t *ncode,
         int32_t *func_idx, int32_t *specfunc_idx);
+char *jl_get_global_native_name(char *name, void *owner, void *addr) JL_NOTSAFEPOINT;
+char *jl_get_global_native_name_for_value(jl_value_t *val) JL_NOTSAFEPOINT;
+int32_t jl_assign_functionID(const char *fname);
 
 // the first argument to jl_idtable_rehash is used to return a value
 // make sure it is rooted if it is used after the function returns
@@ -1167,6 +1170,8 @@ struct _jl_sysimg_fptrs_t;
 
 void jl_register_fptrs(uint64_t sysimage_base, const struct _jl_sysimg_fptrs_t *fptrs,
                        jl_method_instance_t **linfos, size_t n);
+
+extern void jl_write_bitcode_module(void *M, char *fname);
 
 extern arraylist_t partial_inst;
 

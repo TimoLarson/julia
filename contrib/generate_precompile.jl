@@ -29,6 +29,13 @@ f(x) = x03
 f(1,2)
 [][1]
 cd("complet_path\t\t$CTRL_C
+Base.chipmunk_referencedGlobal
+Base.chipmunk_funLiteral(Int64(1))
+Base.chipmunk_funAddLiteral(Int64(1))
+Base.chipmunk_funGetGlobal(Int64(1))
+Base.chipmunk_funAddGlobal(Int64(1))
+Base.chipmunk_funAddInitGlobal(Int64(1))
+println(Int64(1))
 """
 
 julia_exepath() = joinpath(Sys.BINDIR, Base.julia_exename())
@@ -76,8 +83,17 @@ function generate_precompile_statements()
         empty!(DEPOT_PATH)
     end
 
+    function mkperm(fun, pathfile)
+        file = Base.joinpath(Base.Filesystem.pwd(), "..", pathfile)
+        open(file, "w") do io; end
+        open(file, "r+") do io
+            fun(file, io)
+        end
+    end
+
     print("Generating precompile statements...")
-    mktemp() do precompile_file, precompile_file_h
+    #mktemp() do precompile_file, precompile_file_h
+    mkperm("pre.txt") do precompile_file, precompile_file_h
         # Run a repl process and replay our script
         pty_slave, pty_master = open_fake_pty()
         blackhole = Sys.isunix() ? "/dev/null" : "nul"
@@ -162,14 +178,16 @@ function generate_precompile_statements()
 
         # Execute the collected precompile statements
         n_succeeded = 0
+        println("\nNum statements: ", length(statements))
         include_time = @elapsed for statement in sort(collect(statements))
             # println(statement)
             try
                 Base.include_string(PrecompileStagingArea, statement)
                 n_succeeded += 1
-            catch
+            catch e
                 # See #28808
                 # @error "Failed to precompile $statement"
+                println("Failed to precompile statement:\n", statement)
             end
         end
         if have_repl
