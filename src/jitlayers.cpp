@@ -77,6 +77,7 @@ using namespace llvm;
 #if JL_LLVM_VERSION < 100000
 static const TargetMachine::CodeGenFileType CGFT_ObjectFile = TargetMachine::CGFT_ObjectFile;
 #endif
+size_t addtolib = 0;
 
 RTDyldMemoryManager* createRTDyldMemoryManager(void);
 
@@ -882,7 +883,8 @@ void* jl_get_globalvar(GlobalVariable *gv)
 void jl_add_to_shadow(Module *m)
 {
 #ifndef KEEP_BODIES
-    if (!imaging_mode && !jl_options.outputjitbc)
+    if (!imaging_mode && !jl_options.outputjitbc &&
+            !(jl_options.outputji && jl_options.incremental && addtolib))
         return;
 #endif
     ValueToValueMapTy VMap;
