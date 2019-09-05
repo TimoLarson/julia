@@ -362,6 +362,7 @@ typedef struct _jl_code_instance_t {
     // names of declarations in the JIT,
     // suitable for referencing in LLVM IR
     jl_llvm_functions_t functionObjectsDecls;
+    uint8_t natived;
 } jl_code_instance_t;
 
 // all values are callable as Functions
@@ -505,6 +506,8 @@ typedef struct _jl_module_t {
     int32_t nospecialize;  // global bit flags: initialization for new methods
     uint8_t istopmod;
     jl_mutex_t lock;
+    char *libpath;
+    void *libhandle;
 } jl_module_t;
 
 // one Type-to-Value entry
@@ -1934,6 +1937,8 @@ typedef struct {
     const char *output_code_coverage;
     int8_t incremental;
     int8_t image_file_specified;
+    const char *outputpath;
+    const char *outputbase;
 } jl_options_t;
 
 extern JL_DLLEXPORT jl_options_t jl_options;
