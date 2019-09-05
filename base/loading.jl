@@ -1282,6 +1282,16 @@ function compilecache(pkg::PkgId, path::String)
         end
         # inherit permission from the source file
         chmod(cachefile, filemode(path) & 0o777)
+        # derive path and base of filename from ji cachefile
+        dir = Base.dirname(cachefile)
+        file = Base.basename(cachefile)
+        name = file[1:min(end, findlast('.', file)-1)]
+        # Convert LLVM bc to ll
+        run(`$(joinpath(Sys.BINDIR, "..", "tools", "llvm-dis")) $(joinpath(dir, name * ".bc")) -o=$(joinpath(dir, name * ".ll"))`)
+        # Replace internal with external (this is a cludge)
+        write(joinpath(dir, name * "_munged.ll"), replace(read(joinpath(dir, name * ".ll"), String), "internal"=>"external"))
+        # Compile modified ll file
+        run(`$(joinpath(Sys.BINDIR, "..", "tools", "clang")) -shared -fpic $(joinpath(dir, name * "_munged.ll")) -o $(joinpath(dir, name * ".so"))`)
     elseif p.exitcode == 125
         return PrecompilableError()
     else
