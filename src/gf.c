@@ -24,6 +24,8 @@
 extern "C" {
 #endif
 
+extern size_t addtolib; // defined in src/jitlayers.cpp
+
 JL_DLLEXPORT size_t jl_world_counter = 1;
 JL_DLLEXPORT size_t jl_get_world_counter(void)
 {
@@ -2001,11 +2003,11 @@ static void _generate_from_hint(jl_method_instance_t *mi, size_t world)
         // If we are saving LLVM or native code, generate the LLVM IR so that it'll
         // be included in the saved LLVM module.
         if (jl_options.outputji)
-            jl_options.sandbox = 1;
+            addtolib += 1;
         jl_code_instance_t *compiledcodeinst = jl_compile_linfo(mi, src, world, &jl_default_cgparams);
         if (jl_options.outputji) {
             compiledcodeinst->natived = 1;
-            jl_options.sandbox = 0;
+            addtolib -= 1;
         }
     }
 }

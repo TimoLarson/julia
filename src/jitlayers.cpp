@@ -73,6 +73,8 @@ using namespace llvm;
 #include "jitlayers.h"
 #include "julia_assert.h"
 
+size_t addtolib = 0;
+
 RTDyldMemoryManager* createRTDyldMemoryManager(void);
 
 static IntegerType *T_uint32;
@@ -936,7 +938,7 @@ void jl_add_to_shadow(Module *m)
 {
 #ifndef KEEP_BODIES
     if (!imaging_mode && !jl_options.outputjitbc &&
-            !(jl_options.outputji && jl_options.incremental && jl_options.sandbox))
+            !(jl_options.outputji && jl_options.incremental && addtolib))
         return;
 #endif
     ValueToValueMapTy VMap;

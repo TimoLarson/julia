@@ -42,7 +42,6 @@ struct JLOptions
     output_code_coverage::Ptr{UInt8}
     incremental::Int8
     image_file_specified::Int8
-    sandbox::Int8
     outputpath::Ptr{UInt8}
     outputbase::Ptr{UInt8}
 end

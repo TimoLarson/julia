@@ -1190,7 +1190,7 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
         nested_compile = true;
 
         bool sharedlib = false;
-        bool bundle = true; 
+        bool bundle = true;
         if (jl_options.outputji && jl_options.incremental) {
             sharedlib = true;
             // Decide which methods to bundle into the shared library and show some debugging info
@@ -1254,7 +1254,7 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             bundle = !toplevel && bundle;
 
             if (sharedlib && bundle) {
-                jl_printf(JL_STDERR, "Adding to shadow (%i) %s %s\n", jl_options.sandbox, f, specf);
+                jl_printf(JL_STDERR, "Adding to shadow %s %s\n", f, specf);
                 jl_method_t *_method = mi->def.method;
                 if (jl_is_method(_method)) {
                     jl_printf(JL_STDERR, "Method: %s\n", jl_symbol_name(_method->name));
