@@ -44,9 +44,6 @@ JL_DLLEXPORT int jl_shadow_output_to_bc(const char *jipath)
 
 void jl_write_compiler_output(void)
 {
-    //DEBUG
-    jl_printf(JL_STDERR, ">> jl_write_compiler_output %s\n", jl_options.outputji);
-
     if (!jl_generating_output()) {
         if (jl_options.outputjitbc)
             jl_dump_native(NULL, jl_options.outputjitbc, NULL, NULL, 0);
@@ -129,10 +126,6 @@ void jl_write_compiler_output(void)
         }
     }
     JL_GC_POP();
-
-    //DEBUG
-    jl_printf(JL_STDERR, "<< jl_write_compiler_output %s\n", jl_options.outputji);
-
 }
 
 // f{<:Union{...}}(...) is a common pattern

@@ -1189,26 +1189,7 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             last_time = jl_hrtime();
         nested_compile = true;
 
-        bool sharedlib = false;
-        bool bundle = true;
-        if (jl_options.outputji && jl_options.incremental) {
-            sharedlib = true;
-            // Decide which methods to bundle into the shared library and show some debugging info
-            if (jl_options.outputji && jl_options.incremental) {
-                jl_method_t *_method = mi->def.method;
-                if (jl_is_method(_method)) {
-                    jl_module_t *_module = _method->module;
-                    if (_module && _module->parent == _module && (
-                            !strcmp("PkgA", jl_symbol_name(_module->name)) ||
-                            !strcmp("PkgB", jl_symbol_name(_module->name)) ||
-                            !strcmp("PkgC", jl_symbol_name(_module->name))
-                            )) {
-                        bundle = true;
-
-                    }
-                }
-            }
-        }
+        bool sharedlib = jl_options.outputji && jl_options.incremental;
 
         // Step 3. actually do the work of emitting the function
         std::unique_ptr<Module> m;
@@ -1250,36 +1231,11 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             }
 
             // Step 5. Add the result to the execution engine now
+            jl_finalize_module(m.release(), !toplevel);
 
-            bundle = !toplevel && bundle;
-
-            if (sharedlib && bundle) {
-                jl_printf(JL_STDERR, "Adding to shadow %s %s\n", f, specf);
-                jl_method_t *_method = mi->def.method;
-                if (jl_is_method(_method)) {
-                    jl_printf(JL_STDERR, "Method: %s\n", jl_symbol_name(_method->name));
-                    jl_module_t *_module = _method->module;
-                    while(_module) {
-                        jl_printf(JL_STDERR, "Module: %s\n", jl_symbol_name(_module->name));
-                        if (_module == _module->parent) {
-                            jl_printf(JL_STDERR, "Module: <itself>\n");
-                            _module = NULL;
-                        }
-                        else {
-                            _module = _module->parent;
-                        }
-                    }
-                }
-            }
-
-            if (sharedlib) {
-                jl_finalize_module(m.release(), bundle);
-                if (bundle)
-                    codeinst->natived = 1;
-            }
-            else {
-                jl_finalize_module(m.release(), !toplevel);
-            }
+            // Mark this code instance as having been native compiled
+            if (!toplevel && sharedlib && addtolib)
+                codeinst->natived = 1;
         }
 
         if (// don't alter `inferred` when the code is not directly being used
