@@ -934,7 +934,7 @@ void* jl_get_globalvar(GlobalVariable *gv)
 void jl_add_to_shadow(Module *m)
 {
     if (jl_options.outputji && jl_options.incremental) {
-        if (!addtolib) {
+        if (!jl_options.topbase && !addtolib) {
             jl_safe_printf("Not adding\n");
 
             // print which functions were rejected by the addtolib flag
@@ -948,7 +948,7 @@ void jl_add_to_shadow(Module *m)
     }
 #ifndef KEEP_BODIES
     if (!imaging_mode && !jl_options.outputjitbc &&
-            !(jl_options.outputji && jl_options.incremental && addtolib))
+            !(jl_options.outputji && jl_options.incremental && (jl_options.topbase || addtolib)))
         return;
 #endif
     ValueToValueMapTy VMap;

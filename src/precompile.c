@@ -24,6 +24,8 @@ void jl_precompile(int all);
 
 extern void *shadow_output;
 
+int startdebug = 0;
+
 // For saving shared object related data
 JL_DLLEXPORT int jl_shadow_output_to_bc(const char *jipath)
 {
@@ -38,7 +40,7 @@ JL_DLLEXPORT int jl_shadow_output_to_bc(const char *jipath)
     s += strlen(outputext);
     s[0] = 0;
 
-    //DEBUG
+    startdebug = 1; // flag for CLUDGE to work around pthread_self() segfault
     jl_printf(JL_STDERR, "jl_shadow_output_to_bc: %s\n", fname);
 
     jl_write_bitcode_module((void*)shadow_output, (char*)fname);

@@ -3,6 +3,7 @@
 #ifndef JL_LOCKS_H
 #define JL_LOCKS_H
 
+#include "stdio.h"
 #include "julia_assert.h"
 
 #ifdef __cplusplus
@@ -18,7 +19,9 @@ extern "C" {
 // The JL_LOCK* and JL_UNLOCK* macros are no-op for non-threading build
 // while the jl_mutex_* functions are always locking and unlocking the locks.
 
-static inline void jl_mutex_wait(jl_mutex_t *lock, int safepoint)
+extern int startdebug;
+
+static void jl_mutex_wait(jl_mutex_t *lock, int safepoint)
 {
     unsigned long self = jl_thread_self();
     unsigned long owner = jl_atomic_load_acquire(&lock->owner);
@@ -90,6 +93,7 @@ static inline void jl_mutex_lock(jl_mutex_t *lock)
 {
     jl_ptls_t ptls = jl_get_ptls_states();
     JL_SIGATOMIC_BEGIN();
+    //if (!startdebug) // Adding condition is a CLUDGE to work around puzzling segfault
     jl_mutex_wait(lock, 1);
     jl_lock_frame_push(lock);
     jl_gc_enable_finalizers(ptls, 0);

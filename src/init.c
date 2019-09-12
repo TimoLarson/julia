@@ -223,8 +223,12 @@ JL_DLLEXPORT void jl_atexit_hook(int exitcode)
 
     jl_ptls_t ptls = jl_get_ptls_states();
 
-    if (exitcode == 0)
+    if (exitcode == 0) {
+        pthread_t me = pthread_self();
+        unsigned long you = jl_thread_self();
+        jl_printf(JL_STDERR, "\npthread_equal: %i\n", pthread_equal(me, (pthread_t)you));
         jl_write_compiler_output();
+    }
     jl_print_gc_stats(JL_STDERR);
     if (jl_options.code_coverage)
         jl_write_coverage_data(jl_options.output_code_coverage);

@@ -1387,7 +1387,7 @@ static void method_overwrite(jl_typemap_entry_t *newentry, jl_method_t *oldvalue
         jl_uv_flush(s);
     }
     if (jl_options.incremental && jl_generating_output())
-        jl_printf(JL_STDERR, "  ** incremental compilation may be fatally broken for this module **\n\n");
+        jl_printf(JL_STDERR, "  ** method overwritten: incremental compilation may be fatally broken for this module **\n\n");
 }
 
 static void update_max_args(jl_methtable_t *mt, jl_value_t *type)

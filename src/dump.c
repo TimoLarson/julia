@@ -1250,6 +1250,10 @@ static void jl_collect_backedges(jl_array_t *s)
 // serialize information about all loaded modules
 static void write_mod_list(ios_t *s, jl_array_t *a)
 {
+    jl_printf(JL_STDERR, "\nIn write_mod_list\n");
+
+    if (a) {
+
     size_t i;
     size_t len = jl_array_len(a);
     for (i = 0; i < len; i++) {
@@ -1265,6 +1269,9 @@ static void write_mod_list(ios_t *s, jl_array_t *a)
             write_uint64(s, m->build_id);
         }
     }
+
+    } // if(a)
+
     write_int32(s, 0);
 }
 
@@ -1281,7 +1288,16 @@ static void write_header(ios_t *s)
     ios_write(s, JL_BUILD_UNAME, strlen(JL_BUILD_UNAME)+1);
     ios_write(s, JL_BUILD_ARCH, strlen(JL_BUILD_ARCH)+1);
     ios_write(s, JULIA_VERSION_STRING, strlen(JULIA_VERSION_STRING)+1);
-    const char *branch = jl_git_branch(), *commit = jl_git_commit();
+
+    //DEBUG
+    pthread_t me = pthread_self();
+    unsigned long you = jl_thread_self();
+    jl_printf(JL_STDERR, "\nwrite_header pthread_equal: %i\n", pthread_equal(me, (pthread_t)you));
+
+    //const char *branch = jl_git_branch(), *commit = jl_git_commit();
+    //ios_write(s, branch, strlen(branch)+1);
+    //ios_write(s, commit, strlen(commit)+1);
+    const char *branch = "thegitbranch", *commit = "thegitcommit";
     ios_write(s, branch, strlen(branch)+1);
     ios_write(s, commit, strlen(commit)+1);
 }
@@ -1322,6 +1338,10 @@ static int64_t write_dependency_list(ios_t *s, jl_array_t **udepsp, jl_array_t *
     int64_t initial_pos = 0;
     int64_t pos = 0;
     static jl_array_t *deps = NULL;
+
+    jl_array_t *udeps = NULL;
+    if (!jl_options.topbase) {
+
     if (!deps)
         deps = (jl_array_t*)jl_get_global(jl_base_module, jl_symbol("_require_dependencies"));
 
@@ -1333,8 +1353,10 @@ static int64_t write_dependency_list(ios_t *s, jl_array_t **udepsp, jl_array_t *
     jl_value_t *uniqargs[2] = {unique_func, (jl_value_t*)deps};
     size_t last_age = jl_get_ptls_states()->world_age;
     jl_get_ptls_states()->world_age = jl_world_counter;
-    jl_array_t *udeps = (*udepsp = deps && unique_func ? (jl_array_t*)jl_apply(uniqargs, 2) : NULL);
+    udeps = (*udepsp = deps && unique_func ? (jl_array_t*)jl_apply(uniqargs, 2) : NULL);
     jl_get_ptls_states()->world_age = last_age;
+
+    } // if (!jl_options.topbase)
 
     // write a placeholder for total size so that we can quickly seek past all of the
     // dependencies if we don't need them
@@ -2807,6 +2829,12 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
     mod_array = jl_get_loaded_modules();
 
     serializer_worklist = worklist;
+
+    //DEBUG
+    pthread_t me = pthread_self();
+    unsigned long you = jl_thread_self();
+    jl_printf(JL_STDERR, "\njl_save_incremental pthread_equal: %i\n", pthread_equal(me, (pthread_t)you));
+
     write_header(&f);
     // write description on contents
     write_work_list(&f);
@@ -2815,7 +2843,11 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
     // write description of requirements for loading
     // this can return errors during deserialize,
     // best to keep it early (before any actual initialization)
+    jl_printf(JL_STDERR, "\nBefore write_mod_list\n");
+    jl_printf(JL_STDERR, "\nmod_array = %p\n", mod_array);
     write_mod_list(&f, mod_array);
+    jl_printf(JL_STDERR, "\nAfter write_mod_list\n");
+    jl_printf(JL_STDERR, "\njl_save_incremental pthread_equal: %i\n", pthread_equal(me, (pthread_t)you));
 
     arraylist_new(&reinit_list, 0);
     htable_new(&edges_map, 0);
@@ -2835,13 +2867,20 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
     jl_array_t *edges = jl_alloc_vec_any(0);
 
     size_t i;
-    size_t len = jl_array_len(mod_array);
+    size_t len;
+
+    if (mod_array) {
+
+    len = jl_array_len(mod_array);
     for (i = 0; i < len; i++) {
         jl_module_t *m = (jl_module_t*)jl_array_ptr_ref(mod_array, i);
         assert(jl_is_module(m));
         if (m->parent == m) // some toplevel modules (really just Base) aren't actually
             jl_collect_lambdas_from_mod(lambdas, m);
     }
+
+    } // if (mod_array)
+
     jl_collect_methtable_from_mod(lambdas, jl_type_type_mt);
     jl_collect_missing_backedges_to_mod(jl_type_type_mt);
     jl_collect_methtable_from_mod(lambdas, jl_nonfunction_mt);

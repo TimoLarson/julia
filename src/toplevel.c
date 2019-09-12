@@ -832,7 +832,7 @@ JL_DLLEXPORT jl_value_t *jl_toplevel_eval_in(jl_module_t *m, jl_value_t *ex)
     int last_lineno = jl_lineno;
     if (jl_options.incremental && jl_generating_output()) {
         if (!ptrhash_has(&jl_current_modules, (void*)m)) {
-            if (m != jl_main_module) { // TODO: this was grand-fathered in
+            if (m != jl_main_module && !jl_options.topbase) { // TODO: this was grand-fathered in
                 jl_printf(JL_STDERR, "WARNING: eval into closed module %s:\n", jl_symbol_name(m->name));
                 jl_static_show(JL_STDERR, ex);
                 jl_printf(JL_STDERR, "\n  ** incremental compilation may be fatally broken for this module **\n\n");

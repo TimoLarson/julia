@@ -44,6 +44,7 @@ struct JLOptions
     image_file_specified::Int8
     outputpath::Ptr{UInt8}
     outputbase::Ptr{UInt8}
+    topbase::Int8
 end
 
 # This runs early in the sysimage != is not defined yet

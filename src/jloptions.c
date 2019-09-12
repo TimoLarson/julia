@@ -73,7 +73,8 @@ jl_options_t jl_options = { 0,    // quiet
                             0, // incremental
                             0, // image_file_specified
                             NULL, // outputpath
-                            NULL // outputbase
+                            NULL, // outputbase
+                            0 // topbase
 };
 
 static const char usage[] = "julia [switches] -- [programfile] [args...]\n";
@@ -189,6 +190,7 @@ JL_DLLEXPORT void jl_parse_opts(int *argcp, char ***argvp)
            opt_compiled_modules,
            opt_machine_file,
            opt_project,
+           opt_topbase,
     };
     static const char* const shortopts = "+vhqH:e:E:L:J:C:ip:O:g:";
     static const struct option longopts[] = {
@@ -211,6 +213,7 @@ JL_DLLEXPORT void jl_parse_opts(int *argcp, char ***argvp)
         { "procs",           required_argument, 0, 'p' },
         { "machine-file",    required_argument, 0, opt_machine_file },
         { "project",         optional_argument, 0, opt_project },
+        { "topbase",         optional_argument, 0, opt_topbase },
         { "color",           required_argument, 0, opt_color },
         { "history-file",    required_argument, 0, opt_history_file },
         { "startup-file",    required_argument, 0, opt_startup_file },
@@ -407,6 +410,12 @@ restart_switch:
             break;
         case opt_project:
             jl_options.project = optarg ? strdup(optarg) : "@.";
+            break;
+        case opt_topbase:
+            if (!strcmp(optarg, "yes"))
+                jl_options.topbase = 1;
+            else
+                jl_options.topbase = 0;
             break;
         case opt_color:
             if (!strcmp(optarg, "yes"))

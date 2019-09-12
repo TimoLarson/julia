@@ -1904,6 +1904,7 @@ typedef struct {
     int8_t image_file_specified;
     const char *outputpath;
     const char *outputbase;
+    int8_t topbase;
 } jl_options_t;
 
 extern JL_DLLEXPORT jl_options_t jl_options;
