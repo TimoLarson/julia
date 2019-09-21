@@ -1257,6 +1257,14 @@ function compilecache(pkg::PkgId, path::String)
         open(cachefile, "a+") do f
             write(f, _crc32c(seekstart(f)))
         end
+        # derive path and base of filename from ji cachefile
+        dir = Base.dirname(cachefile)
+        file = Base.basename(cachefile)
+        name = file[1:min(end, findlast('.', file)-1)]
+        # Convert LLVM bc to ll
+        run(`$(joinpath(Sys.BINDIR, "..", "tools", "llvm-dis")) $(joinpath(dir, name * ".bc")) -o=$(joinpath(dir, name * ".ll"))`)
+        # Compile ll file
+        run(`$(joinpath(Sys.BINDIR, "..", "tools", "clang")) -shared -fpic $(joinpath(dir, name * ".ll")) -o $(joinpath(dir, name * ".so"))`)
     elseif p.exitcode == 125
         return PrecompilableError()
     else

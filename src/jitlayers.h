@@ -25,6 +25,7 @@ extern legacy::PassManager *jl_globalPM;
 
 extern "C" {
     extern int globalUnique;
+    extern size_t addtolib;
 }
 extern TargetMachine *jl_TargetMachine;
 extern Module *shadow_output;

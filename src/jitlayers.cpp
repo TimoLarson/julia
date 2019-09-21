@@ -80,6 +80,7 @@ using namespace llvm;
 #if JL_LLVM_VERSION < 100000
 static const TargetMachine::CodeGenFileType CGFT_ObjectFile = TargetMachine::CGFT_ObjectFile;
 #endif
+size_t addtolib = 0;
 
 RTDyldMemoryManager* createRTDyldMemoryManager(void);
 
@@ -892,6 +893,12 @@ void** jl_emit_and_add_to_shadow(GlobalVariable *gv, void *gvarinit)
 {
     PointerType *T = cast<PointerType>(gv->getType()->getElementType()); // pointer is the only supported type here
 
+    //DEBUGGING
+    if (jl_options.outputji && jl_options.incremental) {
+        jl_safe_printf("In jl_emit_and_add_to_shadow\n");
+        jl_safe_printf("    %s\n", gv->getName().str().c_str());
+    }
+
     GlobalVariable *shadowvar = NULL;
     if (imaging_mode)
         shadowvar = global_proto(gv, shadow_output);
@@ -926,8 +933,22 @@ void* jl_get_globalvar(GlobalVariable *gv)
 // clones the contents of the module `m` to the shadow_output collector
 void jl_add_to_shadow(Module *m)
 {
+    if (jl_options.outputji && jl_options.incremental) {
+        if (!addtolib) {
+            jl_safe_printf("Not adding\n");
+
+            // print which functions were rejected by the addtolib flag
+            for (Module::iterator I = m->begin(), E = m->end(); I != E; ++I) {
+                Function *F = &*I;
+                if (!F->isDeclaration()) {
+                    jl_safe_printf("    %s\n", F->getName().str().c_str());
+                }
+            }
+        }
+    }
 #ifndef KEEP_BODIES
-    if (!imaging_mode && !jl_options.outputjitbc)
+    if (!imaging_mode && !jl_options.outputjitbc &&
+            !(jl_options.outputji && jl_options.incremental && addtolib))
         return;
 #endif
     ValueToValueMapTy VMap;
@@ -939,7 +960,10 @@ void jl_add_to_shadow(Module *m)
     for (Module::iterator I = clone->begin(), E = clone->end(); I != E; ++I) {
         Function *F = &*I;
         if (!F->isDeclaration()) {
-            F->setLinkage(Function::InternalLinkage);
+            if (jl_options.outputji && jl_options.incremental)
+                F->setLinkage(Function::ExternalLinkage);
+            else
+                F->setLinkage(Function::InternalLinkage);
             addComdat(F);
         }
     }
