@@ -726,20 +726,31 @@ void _julia_init(JL_IMAGE_SEARCH rel)
 
     jl_gc_enable(0);
 
-    jl_resolve_sysimg_location(rel);
-    // loads sysimg if available, and conditionally sets jl_options.cpu_target
-    if (jl_options.image_file)
-        jl_preload_sysimg_so(jl_options.image_file);
-    if (jl_options.cpu_target == NULL)
-        jl_options.cpu_target = "native";
-
-    arraylist_new(&partial_inst, 0);
-    if (jl_options.image_file) {
-        jl_restore_system_image(jl_options.image_file);
+    fprintf(stderr, "calling jl_resolve_sysimg_location with rel = %i\n", rel);
+    fprintf(stderr, "..and jl_options.image_file = %s\n", jl_options.image_file);
+    if (strstr(jl_options.image_file, "corecompiler2.ji") != NULL) {
+        fprintf(stderr, "restoring corecompiler2.ji\n");
+        size_t count = 0;
+        jl_array_t *empty_mod_list = jl_alloc_array_1d((jl_value_t*)jl_any_type, count);
+        jl_restore_incremental(jl_options.image_file, empty_mod_list);
+        fprintf(stderr, "restored corecompiler2.ji\n");
     }
     else {
-        jl_init_types();
-        jl_init_codegen();
+        jl_resolve_sysimg_location(rel);
+        // loads sysimg if available, and conditionally sets jl_options.cpu_target
+        if (jl_options.image_file)
+            jl_preload_sysimg_so(jl_options.image_file);
+        if (jl_options.cpu_target == NULL)
+            jl_options.cpu_target = "native";
+
+        arraylist_new(&partial_inst, 0);
+        if (jl_options.image_file) {
+            jl_restore_system_image(jl_options.image_file);
+        }
+        else {
+            jl_init_types();
+            jl_init_codegen();
+        }
     }
 
     jl_init_tasks();
