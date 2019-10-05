@@ -730,8 +730,9 @@ void _julia_init(JL_IMAGE_SEARCH rel)
     fprintf(stderr, "..and jl_options.image_file = %s\n", jl_options.image_file);
     if (strstr(jl_options.image_file, "corecompiler2.ji") != NULL) {
         fprintf(stderr, "restoring corecompiler2.ji\n");
+        jl_init_types();
         size_t count = 0;
-        jl_array_t *empty_mod_list = jl_alloc_array_1d((jl_value_t*)jl_any_type, count);
+        jl_array_t *empty_mod_list = jl_alloc_array_1d((jl_value_t*)jl_array_any_type, count);
         jl_restore_incremental(jl_options.image_file, empty_mod_list);
         fprintf(stderr, "restored corecompiler2.ji\n");
     }

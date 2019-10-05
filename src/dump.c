@@ -1342,19 +1342,19 @@ static int64_t write_dependency_list(ios_t *s, jl_array_t **udepsp, jl_array_t *
     jl_array_t *udeps = NULL;
     if (!jl_options.topbase) {
 
-    if (!deps)
-        deps = (jl_array_t*)jl_get_global(jl_base_module, jl_symbol("_require_dependencies"));
+        if (!deps)
+            deps = (jl_array_t*)jl_get_global(jl_base_module, jl_symbol("_require_dependencies"));
 
-    // unique(deps) to eliminate duplicates while preserving order:
-    // we preserve order so that the topmost included .jl file comes first
-    static jl_value_t *unique_func = NULL;
-    if (!unique_func)
-        unique_func = jl_get_global(jl_base_module, jl_symbol("unique"));
-    jl_value_t *uniqargs[2] = {unique_func, (jl_value_t*)deps};
-    size_t last_age = jl_get_ptls_states()->world_age;
-    jl_get_ptls_states()->world_age = jl_world_counter;
-    udeps = (*udepsp = deps && unique_func ? (jl_array_t*)jl_apply(uniqargs, 2) : NULL);
-    jl_get_ptls_states()->world_age = last_age;
+        // unique(deps) to eliminate duplicates while preserving order:
+        // we preserve order so that the topmost included .jl file comes first
+        static jl_value_t *unique_func = NULL;
+        if (!unique_func)
+            unique_func = jl_get_global(jl_base_module, jl_symbol("unique"));
+        jl_value_t *uniqargs[2] = {unique_func, (jl_value_t*)deps};
+        size_t last_age = jl_get_ptls_states()->world_age;
+        jl_get_ptls_states()->world_age = jl_world_counter;
+        udeps = (*udepsp = deps && unique_func ? (jl_array_t*)jl_apply(uniqargs, 2) : NULL);
+        jl_get_ptls_states()->world_age = last_age;
 
     } // if (!jl_options.topbase)
 
@@ -2263,6 +2263,7 @@ static jl_value_t *jl_deserialize_value(jl_serializer_state *s, jl_value_t **loc
 
 static void jl_insert_methods(jl_array_t *list)
 {
+    if (!list) return;
     size_t i, l = jl_array_len(list);
     for (i = 0; i < l; i += 2) {
         jl_method_t *meth = (jl_method_t*)jl_array_ptr_ref(list, i);
@@ -2414,9 +2415,9 @@ JL_DLLEXPORT int jl_read_verify_header(ios_t *s)
             read_uint8(s) == sizeof(void*) &&
             readstr_verify(s, JL_BUILD_UNAME) && !read_uint8(s) &&
             readstr_verify(s, JL_BUILD_ARCH) && !read_uint8(s) &&
-            readstr_verify(s, JULIA_VERSION_STRING) && !read_uint8(s) &&
-            readstr_verify(s, jl_git_branch()) && !read_uint8(s) &&
-            readstr_verify(s, jl_git_commit()) && !read_uint8(s));
+            readstr_verify(s, JULIA_VERSION_STRING) && !read_uint8(s)); // &&
+            //readstr_verify(s, jl_git_branch()) && !read_uint8(s) &&
+            //readstr_verify(s, jl_git_commit()) && !read_uint8(s));
 }
 
 static void jl_finalize_serializer(jl_serializer_state *s)
@@ -3268,11 +3269,13 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
     arraylist_new(&dependent_worlds, 0);
 
     // verify that the system state is valid
-    jl_value_t *verify_fail = read_verify_mod_list(f, &dependent_worlds, mod_array);
-    if (verify_fail) {
-        arraylist_free(&dependent_worlds);
-        ios_close(f);
-        return verify_fail;
+    if (!jl_options.topbase) {
+        jl_value_t *verify_fail = read_verify_mod_list(f, &dependent_worlds, mod_array);
+        if (verify_fail) {
+            arraylist_free(&dependent_worlds);
+            ios_close(f);
+            return verify_fail;
+        }
     }
 
     // prepare to deserialize
@@ -3284,7 +3287,9 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
     arraylist_push(&backref_list, jl_main_module);
     arraylist_new(&flagref_list, 0);
     arraylist_push(&dependent_worlds, (void*)jl_world_counter);
-    arraylist_push(&dependent_worlds, (void*)jl_main_module->primary_world);
+    if (!jl_options.topbase) {
+        arraylist_push(&dependent_worlds, (void*)jl_main_module->primary_world);
+    }
     qsort(dependent_worlds.items, dependent_worlds.len, sizeof(size_t), size_isgreater);
 
     jl_serializer_state s = {
