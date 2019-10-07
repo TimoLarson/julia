@@ -72,6 +72,16 @@ $(build_private_libdir)/corecompiler2.ji: $(COMPILER_SRCS)
 $(build_private_libdir)/corecompiler2.so: $(build_private_libdir)/corecompiler2.ji.bc
 	$(build_private_libdir)/../../../usr/tools/clang -shared -fpic $(build_private_libdir)/corecompiler2.ji.bc -o $(build_private_libdir)/corecompiler.so
 
+$(build_private_libdir)/syslib.ji: $(COMPILER_SRCS)
+	@$(call PRINT_JULIA, cd $(JULIAHOME)/base && \
+	$(call spawn, gdb --args $(JULIA_EXECUTABLE)) -C "$(JULIA_CPU_TARGET)" --output-ji $(call cygpath_w,$@).tmp2 \
+		--output-incremental=yes --topbase=yes --startup-file=no -g0 -O0 syslib.jl $(RELBUILDROOT))
+		#--startup-file=no -g0 -O0 syslib.jl)
+	@mv $@.tmp2 $@
+
+$(build_private_libdir)/syslib.so: $(build_private_libdir)/syslib.ji.bc
+	$(build_private_libdir)/../../../usr/tools/clang -shared -fpic $(build_private_libdir)/syslib.ji.bc -o $(build_private_libdir)/syslib.so
+
 $(build_private_libdir)/sys.ji: $(build_private_libdir)/corecompiler.ji $(JULIAHOME)/VERSION $(BASE_SRCS) $(STDLIB_SRCS)
 	@$(call PRINT_JULIA, cd $(JULIAHOME)/base && \
 	if ! JULIA_BINDIR=$(call cygpath_w,$(build_bindir)) $(call spawn, $(JULIA_EXECUTABLE)) -g1 -O0 -C "$(JULIA_CPU_TARGET)" --output-ji $(call cygpath_w,$@).tmp $(JULIA_SYSIMG_BUILD_FLAGS) \

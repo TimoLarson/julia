@@ -7,7 +7,9 @@ Functionality for base-64 encoded strings and IO.
 """
 module Base64
 
+    println("hi from Base64")
 using Base: require_one_based_indexing
+    println("hi from Base64")
 
 export
     Base64EncodePipe,
@@ -15,6 +17,8 @@ export
     Base64DecodePipe,
     base64decode,
     stringmime
+
+    println("hi from Base64")
 
 # Base64EncodePipe is a pipe-like IO object, which converts into base64 data
 # sent to a stream. (You must close the pipe to complete the encode, separate
@@ -26,8 +30,11 @@ export
 # useful for decoding strings
 
 include("buffer.jl")
+    println("hi from Base64")
 include("encode.jl")
+    println("hi from Base64")
 include("decode.jl")
+    println("hi from Base64")
 
 """
     stringmime(mime, x; context=nothing)

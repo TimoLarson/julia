@@ -56,6 +56,7 @@ let
 
     Base._track_dependencies[] = true
     Base.tot_time_stdlib[] = @elapsed for stdlib in stdlibs
+        println("DEBUG: ", stdlib)
         tt = @elapsed Base.require(Base, stdlib)
         print_time(stdlib, tt)
     end

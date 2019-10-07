@@ -728,13 +728,13 @@ void _julia_init(JL_IMAGE_SEARCH rel)
 
     fprintf(stderr, "calling jl_resolve_sysimg_location with rel = %i\n", rel);
     fprintf(stderr, "..and jl_options.image_file = %s\n", jl_options.image_file);
-    if (strstr(jl_options.image_file, "corecompiler2.ji") != NULL) {
-        fprintf(stderr, "restoring corecompiler2.ji\n");
+    if (jl_options.image_file && strstr(jl_options.image_file, "syslib.ji") != NULL) {
+        fprintf(stderr, "restoring syslib.ji\n");
         jl_init_types();
         size_t count = 0;
         jl_array_t *empty_mod_list = jl_alloc_array_1d((jl_value_t*)jl_array_any_type, count);
         jl_restore_incremental(jl_options.image_file, empty_mod_list);
-        fprintf(stderr, "restored corecompiler2.ji\n");
+        fprintf(stderr, "restored syslib.ji\n");
     }
     else {
         jl_resolve_sysimg_location(rel);
