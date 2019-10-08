@@ -35,6 +35,11 @@ setproperty!(x, f::Symbol, v) = setfield!(x, f, convert(fieldtype(typeof(x), f),
 
 include("coreio.jl")
 
+# ADDED
+Core.println("\n== is_primary_base_module initialized ==\n")
+Core.println("\n== Base: ", Base, " ==\n")
+Core.println("\n== is_primary_base_module: ", is_primary_base_module, " ==\n")
+
 eval(x) = Core.eval(Base, x)
 eval(m::Module, x) = Core.eval(m, x)
 
@@ -391,8 +396,12 @@ if is_primary_base_module
 function __init__()
 
     # ADDED
+    Core.println("\n== in Base.__init__() ==\n")
     is_primary_base_module = ccall(:jl_module_parent, Ref{Module}, (Any,), Base) === Core.Main
     ccall(:jl_set_istopmod, Cvoid, (Any, Bool), Base, is_primary_base_module)
+    Core.println("\n== re-initialized: is_primary_base_module ==\n")
+    Core.println("\n== Base: ", Base, " ==\n")
+    Core.println("\n== is_primary_base_module: ", is_primary_base_module, " ==\n")
 
     # try to ensuremake sure OpenBLAS does not set CPU affinity (#1070, #9639)
     if !haskey(ENV, "OPENBLAS_MAIN_FREE") && !haskey(ENV, "GOTOBLAS_MAIN_FREE")

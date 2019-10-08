@@ -13,6 +13,11 @@ pushfirst!(Base._included_files, (@__MODULE__, joinpath(@__DIR__, "sysimg.jl")))
 Base.init_depot_path()
 Base.init_load_path()
 
+Core.println("\n== in sysimg.jl ==\n")
+Core.println("\n== Base: ", Base, " ==\n")
+#Core.println("\n== is_primary_base_module: ", is_primary_base_module, " ==\n")
+Core.println("\n== Base.is_primary_base_module: ", Base.is_primary_base_module, " ==\n")
+
 zed1 = "z1"
 if Base.is_primary_base_module
     zed2 = "z2"

@@ -877,9 +877,15 @@ For more details regarding code loading, see the manual sections on [modules](@r
 [parallel computing](@ref code-availability).
 """
 function require(into::Module, mod::Symbol)
+
+    # ADDED
+    Core.println("\n== into: ", into, " ==\n")
+    Core.println("\n== mod: ", mod, " ==\n")
+
     uuidkey = identify_package(into, String(mod))
     # Core.println("require($(PkgId(into)), $mod) -> $uuidkey")
     if uuidkey === nothing
+        Core.println("\n== uuidkey === nothing ==\n")
         where = PkgId(into)
         if where.uuid === nothing
             throw(ArgumentError("""
@@ -909,20 +915,30 @@ function require(into::Module, mod::Symbol)
             full_warning_showed[] = true
         end
     end
+    Core.println("\n== if _track_dependencies[] ==\n")
     if _track_dependencies[]
+        Core.println("\n== if _track_dependencies[] == yup ==\n")
         push!(_require_dependencies, (into, binpack(uuidkey), 0.0))
     end
+    Core.println("\n== return require(uuidkey) ==\n")
     return require(uuidkey)
 end
 
 function require(uuidkey::PkgId)
+    Core.println("\n== in require ==\n")
+    Core.println("\n== uuidkey: ", uuidkey, " ==\n")
     if !root_module_exists(uuidkey)
+        Core.println("\n== !root_module_exists ==\n")
         _require(uuidkey)
+        Core.println("\n== handling callbacks ==\n")
         # After successfully loading, notify downstream consumers
         for callback in package_callbacks
+            Core.println("\n== handling a callback ==\n")
             invokelatest(callback, uuidkey)
         end
     end
+    Core.println("\n== return root_module ==\n")
+    Core.println("\n== uuidkey: ", uuidkey, " ==\n")
     return root_module(uuidkey)
 end
 
@@ -973,11 +989,15 @@ function unreference_module(key::PkgId)
 end
 
 function _require(pkg::PkgId)
+    Core.println("\n== in _require ==\n")
+    Core.println("\n== pkg: ", pkg, " ==\n")
     # handle recursive calls to require
     loading = get(package_locks, pkg, false)
     if loading !== false
+        Core.println("\n== load already in progress ==\n")
         # load already in progress for this module
         wait(loading)
+        Core.println("\n== load done ==\n")
         return
     end
     package_locks[pkg] = Condition()
@@ -987,6 +1007,7 @@ function _require(pkg::PkgId)
         toplevel_load[] = false
         # perform the search operation to select the module file require intends to load
         path = locate_package(pkg)
+        Core.println("\n== path: ", path, " ==\n")
         if path === nothing
             throw(ArgumentError("""
                 Package $pkg is required but does not seem to be installed:
@@ -996,11 +1017,16 @@ function _require(pkg::PkgId)
 
         # attempt to load the module file via the precompile cache locations
         if JLOptions().use_compiled_modules != 0
+            Core.println("\n== try loading via _require_search_from_serialized ==\n")
             m = _require_search_from_serialized(pkg, path)
+            Core.println("\n== back from trying loading via _require_search_from_serialized ==\n")
             if !isa(m, Bool)
+                Core.println("\n== !isa(m, Bool) ==\n")
                 return
             end
         end
+
+        Core.println("\n== here 1 ==\n")
 
         # if the module being required was supposed to have a particular version
         # but it was not handled by the precompile loader, complain
@@ -1015,29 +1041,42 @@ function _require(pkg::PkgId)
             end
         end
 
+        Core.println("\n== here 2 ==\n")
+
         if JLOptions().use_compiled_modules != 0
             if (0 == ccall(:jl_generating_output, Cint, ())) || (JLOptions().incremental != 0)
                 # spawn off a new incremental pre-compile task for recursive `require` calls
                 # or if the require search declared it was pre-compiled before (and therefore is expected to still be pre-compilable)
+                Core.println("\n== compilecache ==\n")
                 cachefile = compilecache(pkg, path)
+                Core.println("\n== after compilecache ==\n")
                 if isa(cachefile, Exception)
+                    Core.println("\n== isa(cachefile, Exception) ==\n")
                     if precompilableerror(cachefile)
+                        Core.println("\n== precompilableerror(cachefile) ==\n")
                         verbosity = isinteractive() ? CoreLogging.Info : CoreLogging.Debug
                         @logmsg verbosity "Skipping precompilation since __precompile__(false). Importing $pkg."
                     else
+                        Core.println("\n== compilecache failed to create a usable precompiled cache file ==\n")
+                        Core.println("\n== for ", pkg, " ==\n")
                         @warn "The call to compilecache failed to create a usable precompiled cache file for $pkg" exception=m
                     end
                     # fall-through to loading the file locally
                 else
+                    Core.println("\n== !isa(cachefile, Exception) so try _require_from_serialized(cachefile) ==\n")
                     m = _require_from_serialized(cachefile)
                     if isa(m, Exception)
+                        Core.println("\n== isa(m, Exception) ==\n")
                         @warn "The call to compilecache failed to create a usable precompiled cache file for $pkg" exception=m
                     else
+                        Core.println("\n== !isa(m, Exception) ==\n")
                         return
                     end
                 end
             end
         end
+
+        Core.println("\n== here 3 ==\n")
 
         # just load the file normally via include
         # for unknown dependencies
@@ -1055,11 +1094,15 @@ function _require(pkg::PkgId)
                 ccall(:jl_set_module_uuid, Cvoid, (Any, NTuple{2, UInt64}), __toplevel__, old_uuid)
             end
         end
+        Core.println("\n== here 4 ==\n")
     finally
+        Core.println("\n== here 5 ==\n")
         toplevel_load[] = last
         loading = pop!(package_locks, pkg)
         notify(loading, all=true)
+        Core.println("\n== here 6 ==\n")
     end
+    Core.println("\n== here 7 ==\n")
     nothing
 end
 
@@ -1139,6 +1182,11 @@ function load_path_setup_code(load_path::Bool=true)
 end
 
 function create_expr_cache(input::String, output::String, concrete_deps::typeof(_concrete_dependencies), uuid::Union{Nothing,UUID})
+    Core.println("\n== in create_expr_cache ==\n")
+    Core.println("\n== input: ", input, " ==\n")
+    Core.println("\n== output: ", output, " ==\n")
+    Core.println("\n== uuid: ", uuid, " ==\n")
+    Core.println("\n== concrete_deps: ", concrete_deps, " ==\n")
     rm(output, force=true)   # Remove file if it exists
     code_object = """
         while !eof(stdin)
@@ -1146,13 +1194,23 @@ function create_expr_cache(input::String, output::String, concrete_deps::typeof(
             eval(Meta.parse(code))
         end
         """
-    io = open(pipeline(`$(julia_cmd()) -O0
+    Core.println("\n== create_expr_cache here 1 ==\n")
+    Core.println("\n== julia_cmd: ", julia_cmd(), " ==\n")
+    Core.println("\n== have_color: ", have_color, " ==\n")
+    Core.println("\n== code_object: ", code_object, " ==\n")
+    #io = open(pipeline(`$(julia_cmd()) -O0
+    z = (pipeline(`$(julia_cmd()) -O0
                        --output-ji $output --output-incremental=yes
                        --startup-file=no --history-file=no --warn-overwrite=yes
                        --color=$(have_color ? "yes" : "no")
                        --eval $code_object`, stderr=stderr),
               "w", stdout)
+    Core.println("\n== create_expr_cache here 1.4 ==\n")
+    Core.println("\n== z: ", z, " ==\n")
+    io = open(z)
+    Core.println("\n== create_expr_cache here 1.5 ==\n")
     in = io.in
+    Core.println("\n== create_expr_cache here 2 ==\n")
     try
         write(in, """
             begin
@@ -1160,6 +1218,7 @@ function create_expr_cache(input::String, output::String, concrete_deps::typeof(
                 Base._track_dependencies[] = true
                 Base.empty!(Base._concrete_dependencies)
             """)
+        Core.println("\n== create_expr_cache here 3 ==\n")
         for (pkg, build_id) in concrete_deps
             pkg_str = if pkg.uuid === nothing
                 "Base.PkgId($(repr(pkg.name)))"
@@ -1168,13 +1227,18 @@ function create_expr_cache(input::String, output::String, concrete_deps::typeof(
             end
             write(in, "Base.push!(Base._concrete_dependencies, $pkg_str => $(repr(build_id)))\n")
         end
+        Core.println("\n== create_expr_cache here 4 ==\n")
         write(io, "end\0")
+        Core.println("\n== create_expr_cache here 5 ==\n")
         uuid_tuple = uuid === nothing ? (0, 0) : convert(NTuple{2, UInt64}, uuid)
         write(in, "ccall(:jl_set_module_uuid, Cvoid, (Any, NTuple{2, UInt64}), Base.__toplevel__, $uuid_tuple)\0")
+        Core.println("\n== create_expr_cache here 6 ==\n")
         source = source_path(nothing)
+        Core.println("\n== create_expr_cache here 7 ==\n")
         if source !== nothing
             write(in, "task_local_storage()[:SOURCE_PATH] = $(repr(source))\0")
         end
+        Core.println("\n== create_expr_cache here 8 ==\n")
         write(in, """
             try
                 Base.include(Base.__toplevel__, $(repr(abspath(input))))
@@ -1183,13 +1247,19 @@ function create_expr_cache(input::String, output::String, concrete_deps::typeof(
                 Base.@debug "Aborting `createexprcache'" exception=(Base.ErrorException("Declaration of __precompile__(false) not allowed"), Base.catch_backtrace())
                 Base.exit(125) # we define status = 125 means PrecompileableError
             end\0""")
+        Core.println("\n== create_expr_cache here 9 ==\n")
         # TODO: cleanup is probably unnecessary here
         if source !== nothing
             write(in, "delete!(task_local_storage(), :SOURCE_PATH)\0")
         end
+        Core.println("\n== create_expr_cache here 10 ==\n")
         write(in, "ccall(:jl_set_module_uuid, Cvoid, (Any, NTuple{2, UInt64}), Base.__toplevel__, (0, 0))\0")
+        Core.println("\n== create_expr_cache here 11 ==\n")
         close(in)
-    catch
+        Core.println("\n== create_expr_cache here 12 ==\n")
+    catch e
+        Core.println("\n== create_expr_cache catch ==\n")
+        Core.println("\n== exception: ", e, " ==\n")
         close(in)
         process_running(io) && Timer(t -> kill(io), 5.0) # wait a short time before killing the process to give it a chance to clean up on its own first
         rethrow()
@@ -1229,8 +1299,11 @@ end
 const MAX_NUM_PRECOMPILE_FILES = 10
 
 function compilecache(pkg::PkgId, path::String)
+    Core.println("\n== in compilecache ==\n")
     # decide where to put the resulting cache file
     cachefile = compilecache_path(pkg)
+    Core.println("\n== compilecache here ==\n")
+    Core.println("\n== cachefile: ", cachefile, " ==\n")
     # prune the directory with cache files
     if pkg.uuid !== nothing
         cachepath = dirname(cachefile)
@@ -1241,6 +1314,7 @@ function compilecache(pkg::PkgId, path::String)
             rm(joinpath(cachepath, cachefiles[idx]))
         end
     end
+    Core.println("\n== compilecache pruned ==\n")
     # build up the list of modules that we want the precompile process to preserve
     concrete_deps = copy(_concrete_dependencies)
     for (key, mod) in loaded_modules
@@ -1248,11 +1322,15 @@ function compilecache(pkg::PkgId, path::String)
             push!(concrete_deps, key => module_build_id(mod))
         end
     end
+    Core.println("\n== compilecache concrete ==\n")
     # run the expression and cache the result
     verbosity = isinteractive() ? CoreLogging.Info : CoreLogging.Debug
     @logmsg verbosity "Precompiling $pkg"
+    Core.println("\n== compilecache calling create_expr_cache ==\n")
     p = create_expr_cache(path, cachefile, concrete_deps, pkg.uuid)
+    Core.println("\n== compilecache called create_expr_cache ==\n")
     if success(p)
+        Core.println("\n== compilecache success ==\n")
         # append checksum to the end of the .ji file:
         open(cachefile, "a+") do f
             write(f, _crc32c(seekstart(f)))

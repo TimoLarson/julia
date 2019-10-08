@@ -428,9 +428,17 @@ Among others, `--math-mode`, `--warn-overwrite`, and `--trace-compile` are notab
     Only the `--cpu-target`, `--sysimage`, `--depwarn`, `--compile` and `--check-bounds` flags were propagated before Julia 1.1.
 """
 function julia_cmd(julia=joinpath(Sys.BINDIR::String, julia_exename()))
+
+    Core.println("\n== in julia_cmd ==\n")
+    Core.println("\n== Sys.BINDIR: ", Sys.BINDIR, " ==\n")
+    Core.println("\n== julia_exename(): ", julia_exename(), " ==\n")
+
     opts = JLOptions()
+    Core.println("\n== opts: ", opts, " ==\n")
     cpu_target = unsafe_string(opts.cpu_target)
+    Core.println("\n== cpu_target: ", cpu_target, " ==\n")
     image_file = unsafe_string(opts.image_file)
+    Core.println("\n== image_file: ", image_file, " ==\n")
     addflags = String[]
     let compile = if opts.compile_enabled == 0
                       "no"
@@ -441,6 +449,7 @@ function julia_cmd(julia=joinpath(Sys.BINDIR::String, julia_exename()))
                   else
                       "" # default = "yes"
                   end
+        Core.println("\n== compile: ", compile, " ==\n")
         isempty(compile) || push!(addflags, "--compile=$compile")
     end
     let depwarn = if opts.depwarn == 0
@@ -450,6 +459,7 @@ function julia_cmd(julia=joinpath(Sys.BINDIR::String, julia_exename()))
                   else
                       "" # default = "yes"
                   end
+        Core.println("\n== depwarn: ", depwarn, " ==\n")
         isempty(depwarn) || push!(addflags, "--depwarn=$depwarn")
     end
     let check_bounds = if opts.check_bounds == 1
@@ -459,12 +469,17 @@ function julia_cmd(julia=joinpath(Sys.BINDIR::String, julia_exename()))
                   else
                       "" # "default"
                   end
+        Core.println("\n== check_bounds: ", check_bounds, " ==\n")
         isempty(check_bounds) || push!(addflags, "--check-bounds=$check_bounds")
     end
     opts.can_inline == 0 && push!(addflags, "--inline=no")
+    Core.println("\n== opts.can_inline: ", opts.can_inline, " ==\n")
     opts.use_compiled_modules == 0 && push!(addflags, "--compiled-modules=no")
+    Core.println("\n== julia_cmd here 6 ==\n")
     opts.opt_level == 2 || push!(addflags, "-O$(opts.opt_level)")
+    Core.println("\n== julia_cmd here 7 ==\n")
     push!(addflags, "-g$(opts.debug_level)")
+    Core.println("\n== julia_cmd here 8 ==\n")
     if opts.code_coverage != 0
         # Forward the code-coverage flag only if applicable (if the filename is pid-dependent)
         coverage_file = (opts.output_code_coverage != C_NULL) ?  unsafe_string(opts.output_code_coverage) : ""
@@ -477,6 +492,7 @@ function julia_cmd(julia=joinpath(Sys.BINDIR::String, julia_exename()))
             isempty(coverage_file) || push!(addflags, "--code-coverage=$coverage_file")
         end
     end
+    Core.println("\n== julia_cmd here 9 ==\n")
     if opts.malloc_log != 0
         if opts.malloc_log == 1
             push!(addflags, "--track-allocation=user")
@@ -484,6 +500,7 @@ function julia_cmd(julia=joinpath(Sys.BINDIR::String, julia_exename()))
             push!(addflags, "--track-allocation=all")
         end
     end
+    Core.println("\n== julia_cmd here 10 ==\n")
     return `$julia -C$cpu_target -J$image_file $addflags`
 end
 
