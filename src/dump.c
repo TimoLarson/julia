@@ -3354,6 +3354,7 @@ JL_DLLEXPORT jl_value_t *jl_restore_incremental_from_buf(const char *buf, size_t
 
 JL_DLLEXPORT jl_value_t *jl_restore_incremental(const char *fname, jl_array_t *mod_array)
 {
+    fprintf(stderr, "\njl_restore_incremental: %s\n", fname);
     int slash = strrchr(fname, '/') - fname + 1;
     int dot = strrchr(fname, '.') - fname;
     char *path = (char*)malloc(slash + 1); // freed by exiting

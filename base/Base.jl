@@ -389,6 +389,11 @@ end_base_include = time_ns()
 
 if is_primary_base_module
 function __init__()
+
+    # ADDED
+    is_primary_base_module = ccall(:jl_module_parent, Ref{Module}, (Any,), Base) === Core.Main
+    ccall(:jl_set_istopmod, Cvoid, (Any, Bool), Base, is_primary_base_module)
+
     # try to ensuremake sure OpenBLAS does not set CPU affinity (#1070, #9639)
     if !haskey(ENV, "OPENBLAS_MAIN_FREE") && !haskey(ENV, "GOTOBLAS_MAIN_FREE")
         ENV["OPENBLAS_MAIN_FREE"] = "1"

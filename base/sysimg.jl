@@ -13,7 +13,9 @@ pushfirst!(Base._included_files, (@__MODULE__, joinpath(@__DIR__, "sysimg.jl")))
 Base.init_depot_path()
 Base.init_load_path()
 
+zed1 = "z1"
 if Base.is_primary_base_module
+    zed2 = "z2"
 # load some stdlib packages but don't put their names in Main
 let
     # Stdlibs manually sorted in top down order
