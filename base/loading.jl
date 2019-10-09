@@ -1195,19 +1195,22 @@ function create_expr_cache(input::String, output::String, concrete_deps::typeof(
         end
         """
     Core.println("\n== create_expr_cache here 1 ==\n")
-    Core.println("\n== julia_cmd: ", julia_cmd(), " ==\n")
+    q = julia_cmd()
+    Core.println("\n== after julia_cmd() ==\n")
+    Core.println("\n== julia_cmd: ", q, " ==\n")
     Core.println("\n== have_color: ", have_color, " ==\n")
     Core.println("\n== code_object: ", code_object, " ==\n")
     #io = open(pipeline(`$(julia_cmd()) -O0
-    z = (pipeline(`$(julia_cmd()) -O0
+    plumber = pipeline(`$(q) -O0
                        --output-ji $output --output-incremental=yes
                        --startup-file=no --history-file=no --warn-overwrite=yes
                        --color=$(have_color ? "yes" : "no")
-                       --eval $code_object`, stderr=stderr),
-              "w", stdout)
+                       --eval $code_object`, stderr=stderr)
+              #         --eval $code_object`, stderr=stderr),
+              #"w", stdout)
     Core.println("\n== create_expr_cache here 1.4 ==\n")
-    Core.println("\n== z: ", z, " ==\n")
-    io = open(z)
+    Core.println("\n== create_expr_cache plumber: ", plumber, " ==\n")
+    io = open(plumber, "w", stdout)
     Core.println("\n== create_expr_cache here 1.5 ==\n")
     in = io.in
     Core.println("\n== create_expr_cache here 2 ==\n")

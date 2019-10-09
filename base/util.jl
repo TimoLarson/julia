@@ -437,8 +437,17 @@ function julia_cmd(julia=joinpath(Sys.BINDIR::String, julia_exename()))
     Core.println("\n== opts: ", opts, " ==\n")
     cpu_target = unsafe_string(opts.cpu_target)
     Core.println("\n== cpu_target: ", cpu_target, " ==\n")
-    image_file = unsafe_string(opts.image_file)
-    Core.println("\n== image_file: ", image_file, " ==\n")
+    if opts.image_file == Base.C_NULL
+        image_file = ""
+    else
+        image_file = unsafe_string(opts.image_file)
+    end
+    Core.println("\n== after opts.image_file ==\n")
+    if image_file == Base.C_NULL
+        Core.println("\n== image_file is NULL ==\n")
+    else
+        Core.println("\n== image_file: ", image_file, " ==\n")
+    end
     addflags = String[]
     let compile = if opts.compile_enabled == 0
                       "no"
@@ -501,7 +510,11 @@ function julia_cmd(julia=joinpath(Sys.BINDIR::String, julia_exename()))
         end
     end
     Core.println("\n== julia_cmd here 10 ==\n")
-    return `$julia -C$cpu_target -J$image_file $addflags`
+    if image_file == ""
+        return `$julia -C$cpu_target $addflags`
+    else
+        return `$julia -C$cpu_target -J$image_file $addflags`
+    end
 end
 
 function julia_exename()

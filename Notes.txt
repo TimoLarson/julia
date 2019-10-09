@@ -1,1 +1,3 @@
-currently in base/utils.something
+Looks like Base.__init__() is not getting called
+so Base64 is failing when it needs Base to have already been initialized,
+specifically uv_eventloop.
