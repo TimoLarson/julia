@@ -10,10 +10,11 @@ pushfirst!(Base._included_files, (@__MODULE__, joinpath(@__DIR__, "sysimg.jl")))
 
 # set up depot & load paths to be able to find stdlib packages
 @eval Base creating_sysimg = true
+Base.reinit_stdio()
 Base.init_depot_path()
 Base.init_load_path()
 
-Base.__init__()
+#Base.__init__()
 
 Core.println("\n== in sysimg.jl ==\n")
 Core.println("\n== Base: ", Base, " ==\n")
