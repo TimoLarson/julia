@@ -1215,12 +1215,19 @@ function create_expr_cache(input::String, output::String, concrete_deps::typeof(
     in = io.in
     Core.println("\n== create_expr_cache here 2 ==\n")
     try
-        write(in, """
+        text1 = """
             begin
                 $(Base.load_path_setup_code())
                 Base._track_dependencies[] = true
                 Base.empty!(Base._concrete_dependencies)
-            """)
+            """
+
+        Core.println("\n== Text1 Begin ==\n")
+        Core.println(text1)
+        Core.println("\n== Text1 End ==\n")
+
+        write(in, text1)
+
         Core.println("\n== create_expr_cache here 3 ==\n")
         for (pkg, build_id) in concrete_deps
             pkg_str = if pkg.uuid === nothing
