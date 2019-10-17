@@ -1267,10 +1267,11 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             }
 
             // Step 5. Add the result to the execution engine now
-            jl_finalize_module(m.release(), !toplevel);
+            if (codeinst->natived != 2)
+                jl_finalize_module(m.release(), !toplevel);
 
             // Mark this code instance as having been native compiled
-            if (!toplevel && sharedlib && addtolib)
+            if (!toplevel && sharedlib && codeinst->natived != 2)
                 codeinst->natived = 1;
         }
 

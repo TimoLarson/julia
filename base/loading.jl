@@ -1234,6 +1234,7 @@ function create_expr_cache(input::String, output::String, concrete_deps::typeof(
         write(io, "end\0")
         Core.println("\n== create_expr_cache here 5 ==\n")
         uuid_tuple = uuid === nothing ? (0, 0) : convert(NTuple{2, UInt64}, uuid)
+        Core.println("\n== create_expr_cache here 5.5 ==\n")
         write(in, "ccall(:jl_set_module_uuid, Cvoid, (Any, NTuple{2, UInt64}), Base.__toplevel__, $uuid_tuple)\0")
         Core.println("\n== create_expr_cache here 6 ==\n")
         source = source_path(nothing)
@@ -1336,20 +1337,34 @@ function compilecache(pkg::PkgId, path::String)
         Core.println("\n== compilecache success ==\n")
         # append checksum to the end of the .ji file:
         open(cachefile, "a+") do f
+            Core.println("\n==> compilecache: open ==\n")
             write(f, _crc32c(seekstart(f)))
+            Core.println("\n==> compilecache: checksum appended ==\n")
         end
         # derive path and base of filename from ji cachefile
         dir = Base.dirname(cachefile)
+        Core.println("\n==> compilecache dir: ==\n")
+        Core.println(dir)
         file = Base.basename(cachefile)
+        Core.println("\n==> compilecache file: ==\n")
+        Core.println(file)
         name = file[1:min(end, findlast('.', file)-1)]
+        Core.println("\n==> compilecache name: ==\n")
+        Core.println(name)
         # Convert LLVM bc to ll
+        Core.println("\n==> compilecache: bc to ll ==\n")
         run(`$(joinpath(Sys.BINDIR, "..", "tools", "llvm-dis")) $(joinpath(dir, name * ".bc")) -o=$(joinpath(dir, name * ".ll"))`)
         # Compile ll file
+        Core.println("\n==> compilecache: ll to so ==\n")
         run(`$(joinpath(Sys.BINDIR, "..", "tools", "clang")) -shared -fpic $(joinpath(dir, name * ".ll")) -o $(joinpath(dir, name * ".so"))`)
+        Core.println("\n==> compilecache: done ==\n")
     elseif p.exitcode == 125
+        Core.println("\n==> compilecache failure: PrecompilableError() ==\n")
         return PrecompilableError()
     else
+        Core.println("\n==> compilecache failure: ==\n")
         error("Failed to precompile $pkg to $cachefile.")
+        Core.println("\n==> p: $p ==\n")
     end
     return cachefile
 end

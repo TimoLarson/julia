@@ -933,6 +933,7 @@ void* jl_get_globalvar(GlobalVariable *gv)
 // clones the contents of the module `m` to the shadow_output collector
 void jl_add_to_shadow(Module *m)
 {
+    /*
     if (jl_options.outputji && jl_options.incremental) {
         if (!addtolib) {
             jl_safe_printf("Not adding\n");
@@ -946,9 +947,10 @@ void jl_add_to_shadow(Module *m)
             }
         }
     }
+    */
 #ifndef KEEP_BODIES
     if (!imaging_mode && !jl_options.outputjitbc &&
-            !(jl_options.outputji && jl_options.incremental && addtolib)
+            !(jl_options.outputji && jl_options.incremental)
        )
         return;
 #endif

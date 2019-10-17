@@ -1805,7 +1805,7 @@ static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl
     int constret = (flags >> 2) & 1;
     int natived = (flags >> 3) & 1;
 
-    codeinst->natived = natived; // function pointers will be linked from a package shared library
+    codeinst->natived = natived ? 2 : 0; // function pointers will be linked from a package shared library
     codeinst->def = (jl_method_instance_t*)jl_deserialize_value(s, (jl_value_t**)&codeinst->def);
     jl_gc_wb(codeinst, codeinst->def);
     codeinst->inferred = jl_deserialize_value(s, &codeinst->inferred);

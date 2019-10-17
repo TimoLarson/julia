@@ -12,7 +12,7 @@ pushfirst!(Base._included_files, (@__MODULE__, joinpath(@__DIR__, "sysimg.jl")))
 @eval Base creating_sysimg = true
 
 # ADDED
-#Base.reinit_stdio()
+Base.reinit_stdio()
 
 Base.init_depot_path()
 Base.init_load_path()
