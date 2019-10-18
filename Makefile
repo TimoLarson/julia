@@ -46,6 +46,19 @@ julia_flisp.boot.inc.phony: julia-deps
 $(BUILDROOT)/doc/_build/html/en/index.html: $(shell find $(BUILDROOT)/base $(BUILDROOT)/doc \( -path $(BUILDROOT)/doc/_build -o -path $(BUILDROOT)/doc/deps -o -name *_constants.jl -o -name *_h.jl -o -name version_git.jl \) -prune -o -type f -print)
 	@$(MAKE) docs
 
+julia-executable: julia-src-$(JULIA_BUILD_MODE)
+	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT)/ui $(JULIA_EXECUTABLE)
+
+julia-copystdlib:
+	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT)/stdlib
+
+#julia-sysimg-ji : julia-stdlib julia-base julia-ui-$(JULIA_BUILD_MODE) | $(build_private_libdir)
+julia-libcorecompiler-ji: julia-executable | julia-copystdlib $(build_private_libdir)
+	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT) -f sysimage.mk libcorecompiler-ji JULIA_EXECUTABLE='$(JULIA_EXECUTABLE)'
+
+julia-libcorecompiler-so: julia-libcorecompiler-ji
+	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT) -f sysimage.mk libcorecompiler-so JULIA_EXECUTABLE='$(JULIA_EXECUTABLE)'
+
 julia-symlink: julia-ui-$(JULIA_BUILD_MODE)
 ifeq ($(OS),WINNT)
 	@echo '@"%~dp0"\'"$(shell $(JULIAHOME)/contrib/relative_path.sh "$(BUILDROOT)" "$(JULIA_EXECUTABLE)" | tr / '\\')" '%*' > $(BUILDROOT)/julia.bat
@@ -561,6 +574,7 @@ distcleanall: cleanall
 .PHONY: default debug release check-whitespace release-candidate \
 	julia-debug julia-release julia-stdlib julia-deps julia-deps-libs \
 	julia-ui-release julia-ui-debug julia-src-release julia-src-debug \
+	julia-executable \
 	julia-symlink julia-base julia-sysimg julia-sysimg-ji julia-sysimg-release julia-sysimg-debug \
 	test testall testall1 test test-* test-revise-* \
 	clean distcleanall cleanall clean-* \
