@@ -581,7 +581,7 @@ static void jl_resolve_sysimg_location(JL_IMAGE_SEARCH rel)
         jl_options.julia_bindir = abspath(jl_options.julia_bindir, 0);
     free(free_path);
     free_path = NULL;
-    if (jl_options.image_file) {
+    if (jl_options.image_file && strcmp("none", jl_options.image_file)) {
         if (rel == JL_IMAGE_JULIA_HOME && !isabspath(jl_options.image_file)) {
             // build time path, relative to JULIA_BINDIR
             free_path = (char*)malloc_s(PATH_MAX);
@@ -728,13 +728,18 @@ void _julia_init(JL_IMAGE_SEARCH rel)
 
     fprintf(stderr, "calling jl_resolve_sysimg_location with rel = %i\n", rel);
     fprintf(stderr, "..and jl_options.image_file = %s\n", jl_options.image_file);
-    if (jl_options.image_file && strstr(jl_options.image_file, "syslib.ji") != NULL) {
+    if (jl_options.image_file && !strcmp("none", jl_options.image_file)) {
+        fprintf(stderr, "No image file\n");
+        jl_init_types();
+        jl_init_codegen();
+        /*
         fprintf(stderr, "restoring syslib.ji\n");
         jl_init_types();
         size_t count = 0;
         jl_array_t *empty_mod_list = jl_alloc_array_1d((jl_value_t*)jl_array_any_type, count);
         jl_restore_incremental(jl_options.image_file, empty_mod_list);
         fprintf(stderr, "restored syslib.ji\n");
+        */
     }
     else {
         jl_resolve_sysimg_location(rel);
@@ -764,14 +769,15 @@ void _julia_init(JL_IMAGE_SEARCH rel)
     jl_an_empty_vec_any = (jl_value_t*)jl_alloc_vec_any(0); // used by ml_matches
     jl_init_serializer();
 
-    if (!jl_options.image_file) {
+    if (!jl_options.image_file || !strcmp("none", jl_options.image_file)) {
+        fprintf(stderr, "Loading core with no image file\n");
         jl_core_module = jl_new_module(jl_symbol("Core"));
         jl_type_typename->mt->module = jl_core_module;
         jl_top_module = jl_core_module;
         jl_init_intrinsic_functions();
         jl_init_primitives();
         jl_init_main_module();
-        jl_load(jl_core_module, "boot.jl");
+        jl_load(jl_core_module, "../julia-precompile-native-dev2/base/boot.jl");
         post_boot_hooks();
     }
 

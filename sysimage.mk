@@ -72,7 +72,7 @@ $(build_private_libdir)/libcorecompiler.ji: $(COMPILER_SRCS)
 	@mv $@.tmp2 $@
 
 $(build_private_libdir)/libcorecompiler.so: $(build_private_libdir)/libcorecompiler.ji.bc
-	$(build_private_libdir)/../../../usr/tools/clang -shared -fpic $<.bc -o -o $@.tmp
+	$(build_private_libdir)/../../../usr/tools/clang -shared -fpic $< -o $@.tmp
 	@mv $@.tmp $@
 
 #$(build_private_libdir)/../../../usr/tools/clang -shared -fpic $(build_private_libdir)/libcorecompiler.ji.bc -o $(build_private_libdir)/libcorecompiler.so
