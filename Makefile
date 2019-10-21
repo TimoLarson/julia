@@ -59,6 +59,9 @@ julia-libcorecompiler-ji: julia-executable | julia-copystdlib $(build_private_li
 julia-libcorecompiler-so: julia-libcorecompiler-ji
 	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT) -f sysimage.mk libcorecompiler-so JULIA_EXECUTABLE='$(JULIA_EXECUTABLE)'
 
+julia-base-ji: julia-base-ji
+	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT) -f sysimage.mk base-ji JULIA_EXECUTABLE='$(JULIA_EXECUTABLE)'
+
 julia-symlink: julia-ui-$(JULIA_BUILD_MODE)
 ifeq ($(OS),WINNT)
 	@echo '@"%~dp0"\'"$(shell $(JULIAHOME)/contrib/relative_path.sh "$(BUILDROOT)" "$(JULIA_EXECUTABLE)" | tr / '\\')" '%*' > $(BUILDROOT)/julia.bat

@@ -7,6 +7,7 @@ default: sysimg-$(JULIA_BUILD_MODE) # contains either "debug" or "release"
 all: sysimg-release sysimg-debug
 libcorecompiler-ji: $(build_private_libdir)/libcorecompiler.ji
 libcorecompiler-so: $(build_private_libdir)/libcorecompiler.so
+base-ji: $(JULIAHOME)/base/Base.ji
 sysimg-ji: $(build_private_libdir)/sys.ji
 sysimg-bc: $(build_private_libdir)/sys-bc.a
 sysimg-release: $(build_private_libdir)/sys.$(SHLIB_EXT)
@@ -76,6 +77,13 @@ $(build_private_libdir)/libcorecompiler.so: $(build_private_libdir)/libcorecompi
 	@mv $@.tmp $@
 
 #$(build_private_libdir)/../../../usr/tools/clang -shared -fpic $(build_private_libdir)/libcorecompiler.ji.bc -o $(build_private_libdir)/libcorecompiler.so
+
+$(JULIAHOME)/base/Base.ji: $(COMPILER_SRCS)
+	@$(call PRINT_JULIA, cd $(JULIAHOME)/base && \
+	$(call spawn, gdb --args $(JULIA_EXECUTABLE)) -C "$(JULIA_CPU_TARGET)" --output-ji $(call cygpath_w,$@).tmp2 \
+		--output-incremental=yes --topbase=yes --startup-file=no -g0 -O0 Base.jl $(RELBUILDROOT))
+		#--startup-file=no -g0 -O0 syslib.jl)
+	@mv $@.tmp2 $@
 
 $(build_private_libdir)/syslib.ji: $(COMPILER_SRCS)
 	@$(call PRINT_JULIA, cd $(JULIAHOME)/base && \

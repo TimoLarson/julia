@@ -2431,10 +2431,16 @@ static void jl_finalize_serializer(jl_serializer_state *s)
             assert(ptrhash_get(&backref_table, jl_array_ptr_ref(jl_module_init_order, i)) != HT_NOTFOUND);
         }
     }
+    jl_printf(JL_STDERR, "jl_module_init_order =\n");
+    jl_(jl_module_init_order);
+    jl_printf(JL_STDERR, "< jl_module_init_order =\n");
     jl_serialize_value(s, jl_module_init_order);
 
     // record list of reinitialization functions
     l = reinit_list.len;
+
+    jl_printf(JL_STDERR, "reinit_list.len = %lu\n", l);
+
     for (i = 0; i < l; i += 2) {
         write_int32(s->s, (int)((uintptr_t) reinit_list.items[i]));
         write_int32(s->s, (int)((uintptr_t) reinit_list.items[i+1]));
@@ -2506,11 +2512,22 @@ static jl_array_t *jl_finalize_deserializer(jl_serializer_state *s, arraylist_t 
 {
     jl_array_t *init_order = (jl_array_t*)jl_deserialize_value(s, NULL);
 
+    jl_printf(JL_STDERR, "init order\n");
+    jl_(init_order);
+    jl_printf(JL_STDERR, "< init order\n");
+
     // run reinitialization functions
     int pos = read_int32(s->s);
+
+    jl_printf(JL_STDERR, "first pos = %i\n", pos);
+
     while (pos != -1) {
-        jl_reinit_item((jl_value_t*)backref_list.items[pos], read_int32(s->s), tracee_list);
+        int how = read_int32(s->s);
+        jl_printf(JL_STDERR, "how = %i\n", how);
+        //jl_reinit_item((jl_value_t*)backref_list.items[pos], read_int32(s->s), tracee_list);
+        jl_reinit_item((jl_value_t*)backref_list.items[pos], how, tracee_list);
         pos = read_int32(s->s);
+        jl_printf(JL_STDERR, "next pos = %i\n", pos);
     }
     return init_order;
 }

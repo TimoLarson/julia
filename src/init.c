@@ -777,7 +777,16 @@ void _julia_init(JL_IMAGE_SEARCH rel)
         jl_init_intrinsic_functions();
         jl_init_primitives();
         jl_init_main_module();
-        jl_load(jl_core_module, "../julia-precompile-native-dev2/base/boot.jl");
+
+        char* compilerpath = "/home/tim/pkg/git/julia-precompile-native-dev2-build/usr/lib/julia/libcorecompiler.ji";
+        struct stat buffer;   
+        if (stat (compilerpath, &buffer) == 0) {
+            size_t count = 0;
+            jl_array_t *empty_mod_list = jl_alloc_array_1d((jl_value_t*)jl_array_any_type, count);
+            jl_restore_incremental(compilerpath, empty_mod_list);
+        }
+
+        jl_load(jl_core_module, "boot.jl");
         post_boot_hooks();
     }
 
