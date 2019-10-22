@@ -2422,6 +2422,9 @@ JL_DLLEXPORT int jl_read_verify_header(ios_t *s)
 
 static void jl_finalize_serializer(jl_serializer_state *s)
 {
+    // ADDED FOR DEBUGGING
+    write_int32(s->s, 41);
+
     size_t i, l;
     // save module initialization order
     if (jl_module_init_order != NULL) {
@@ -2438,6 +2441,11 @@ static void jl_finalize_serializer(jl_serializer_state *s)
 
     // record list of reinitialization functions
     l = reinit_list.len;
+
+    // ADDED FOR DEBUGGING
+    write_int32(s->s, 42);
+    write_int32(s->s, l);
+    write_int32(s->s, 43);
 
     jl_printf(JL_STDERR, "reinit_list.len = %lu\n", l);
 
@@ -2510,11 +2518,23 @@ static void jl_reinit_item(jl_value_t *v, int how, arraylist_t *tracee_list)
 
 static jl_array_t *jl_finalize_deserializer(jl_serializer_state *s, arraylist_t *tracee_list)
 {
+    // ADDED FOR DEBUGGING
+    int val0 = read_int32(s->s);
+    jl_printf(JL_STDERR, "val0 = %i\n", val0);
+
     jl_array_t *init_order = (jl_array_t*)jl_deserialize_value(s, NULL);
 
     jl_printf(JL_STDERR, "init order\n");
     jl_(init_order);
     jl_printf(JL_STDERR, "< init order\n");
+
+    // ADDED FOR DEBUGGING
+    int val1 = read_int32(s->s);
+    jl_printf(JL_STDERR, "val1 = %i\n", val1);
+    int val2 = read_int32(s->s);
+    jl_printf(JL_STDERR, "val2 = %i\n", val2);
+    int val3 = read_int32(s->s);
+    jl_printf(JL_STDERR, "val3 = %i\n", val3);
 
     // run reinitialization functions
     int pos = read_int32(s->s);
