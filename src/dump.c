@@ -1288,16 +1288,7 @@ static void write_header(ios_t *s)
     ios_write(s, JL_BUILD_UNAME, strlen(JL_BUILD_UNAME)+1);
     ios_write(s, JL_BUILD_ARCH, strlen(JL_BUILD_ARCH)+1);
     ios_write(s, JULIA_VERSION_STRING, strlen(JULIA_VERSION_STRING)+1);
-
-    //DEBUG
-    pthread_t me = pthread_self();
-    unsigned long you = jl_thread_self();
-    jl_printf(JL_STDERR, "\nwrite_header pthread_equal: %i\n", pthread_equal(me, (pthread_t)you));
-
-    //const char *branch = jl_git_branch(), *commit = jl_git_commit();
-    //ios_write(s, branch, strlen(branch)+1);
-    //ios_write(s, commit, strlen(commit)+1);
-    const char *branch = "thegitbranch", *commit = "thegitcommit";
+    const char *branch = jl_git_branch(), *commit = jl_git_commit();
     ios_write(s, branch, strlen(branch)+1);
     ios_write(s, commit, strlen(commit)+1);
 }
@@ -2415,13 +2406,16 @@ JL_DLLEXPORT int jl_read_verify_header(ios_t *s)
             read_uint8(s) == sizeof(void*) &&
             readstr_verify(s, JL_BUILD_UNAME) && !read_uint8(s) &&
             readstr_verify(s, JL_BUILD_ARCH) && !read_uint8(s) &&
-            readstr_verify(s, JULIA_VERSION_STRING) && !read_uint8(s)); // &&
-            //readstr_verify(s, jl_git_branch()) && !read_uint8(s) &&
-            //readstr_verify(s, jl_git_commit()) && !read_uint8(s));
+            readstr_verify(s, JULIA_VERSION_STRING) && !read_uint8(s) &&
+            readstr_verify(s, jl_git_branch()) && !read_uint8(s) &&
+            readstr_verify(s, jl_git_commit()) && !read_uint8(s));
 }
 
 static void jl_finalize_serializer(jl_serializer_state *s)
 {
+    int64_t where = ios_pos(s->s);
+    jl_printf(JL_STDERR, "writing finalization to offset: %ld\n", where);
+
     // ADDED FOR DEBUGGING
     write_int32(s->s, 41);
 
@@ -2518,6 +2512,9 @@ static void jl_reinit_item(jl_value_t *v, int how, arraylist_t *tracee_list)
 
 static jl_array_t *jl_finalize_deserializer(jl_serializer_state *s, arraylist_t *tracee_list)
 {
+    int64_t where = ios_pos(s->s);
+    jl_printf(JL_STDERR, "reading finalization from offset: %ld\n", where);
+
     // ADDED FOR DEBUGGING
     int val0 = read_int32(s->s);
     jl_printf(JL_STDERR, "val0 = %i\n", val0);
@@ -2857,6 +2854,12 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
 {
     JL_TIMING(SAVE_MODULE);
     char *tmpfname = strcat(strcpy((char *) alloca(strlen(fname)+8), fname), ".XXXXXX");
+
+    // ADDED FOR DEBUGGING
+    int64_t where = 0;
+    jl_printf(JL_STDERR, "jl_save_incremental file: %s\n", fname);
+    jl_printf(JL_STDERR, "jl_save_incremental temp file: %s\n", tmpfname);
+
     ios_t f;
     jl_array_t *mod_array = NULL, *udeps = NULL;
     if (ios_mkstemp(&f, tmpfname) == NULL) {
@@ -2874,6 +2877,11 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
     jl_printf(JL_STDERR, "\njl_save_incremental pthread_equal: %i\n", pthread_equal(me, (pthread_t)you));
 
     write_header(&f);
+
+    // ADDED FOR DEBUGGING
+    where = ios_pos(&f);
+    jl_printf(JL_STDERR, "after write_header offset: %ld\n", where);
+
     // write description on contents
     write_work_list(&f);
     // write binary blob from caller
@@ -2932,6 +2940,11 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
         jl_get_ptls_states(),
         mod_array
     };
+
+    // ADDED FOR DEBUGGING
+    where = ios_pos(s.s);
+    jl_printf(JL_STDERR, "before serialize worklist offset: %ld\n", where);
+
     jl_serialize_value(&s, worklist);
     jl_serialize_value(&s, lambdas);
     jl_serialize_value(&s, edges);
@@ -3278,6 +3291,9 @@ static int trace_method(jl_typemap_entry_t *entry, void *closure)
 
 static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, const char *libpath)
 {
+    // ADDED FOR DEBUGGING
+    jl_printf(JL_STDERR, "_jl_restore_incremental libpath: %s\n", libpath);
+
     JL_TIMING(LOAD_MODULE);
     jl_ptls_t ptls = jl_get_ptls_states();
     if (ios_eof(f) || !jl_read_verify_header(f)) {
@@ -3285,6 +3301,11 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
         return jl_get_exceptionf(jl_errorexception_type,
                 "Precompile file header verification checks failed.");
     }
+
+    // ADDED FOR DEBUGGING
+    int64_t where = ios_pos(f);
+    jl_printf(JL_STDERR, "after deserialize header offset: %ld\n", where);
+
     { // skip past the mod list
         size_t len;
         while ((len = read_int32(f)))
@@ -3294,6 +3315,10 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
         size_t deplen = read_uint64(f);
         ios_skip(f, deplen);
     }
+
+    // ADDED FOR DEBUGGING
+    where = ios_pos(f);
+    jl_printf(JL_STDERR, "after mod and dependency list offset: %ld\n", where);
 
     jl_bigint_type = jl_base_module ? jl_get_global(jl_base_module, jl_symbol("BigInt")) : NULL;
     if (jl_bigint_type) {
@@ -3335,8 +3360,17 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
         ptls,
         mod_array
     };
+
+    // ADDED FOR DEBUGGING
+    where = ios_pos(f);
+    jl_printf(JL_STDERR, "before jl_deserialize_value offset: %ld\n", where);
+
     jl_array_t *restored = (jl_array_t*)jl_deserialize_value(&s, (jl_value_t**)&restored);
     serializer_worklist = restored;
+
+    // ADDED FOR DEBUGGING
+    where = ios_pos(s.s);
+    jl_printf(JL_STDERR, "after deserialize worklist offset: %ld\n", where);
 
     // get list of external generic functions
     jl_value_t *external_methods = jl_deserialize_value(&s, &external_methods);
@@ -3384,6 +3418,9 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
 
 JL_DLLEXPORT jl_value_t *jl_restore_incremental_from_buf(const char *buf, size_t sz, jl_array_t *mod_array)
 {
+    // ADDED FOR DEBUGGING
+    jl_printf(JL_STDERR, "jl_restore_incremental buf: %s\n", buf);
+
     ios_t f;
     ios_static_buffer(&f, (char*)buf, sz);
     return _jl_restore_incremental(&f, mod_array, NULL);
@@ -3391,7 +3428,7 @@ JL_DLLEXPORT jl_value_t *jl_restore_incremental_from_buf(const char *buf, size_t
 
 JL_DLLEXPORT jl_value_t *jl_restore_incremental(const char *fname, jl_array_t *mod_array)
 {
-    fprintf(stderr, "\njl_restore_incremental: %s\n", fname);
+    fprintf(stderr, "\njl_restore_incremental file: %s\n", fname);
     int slash = strrchr(fname, '/') - fname + 1;
     int dot = strrchr(fname, '.') - fname;
     char *path = (char*)malloc(slash + 1); // freed by exiting

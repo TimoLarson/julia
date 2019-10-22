@@ -49,6 +49,10 @@ $(BUILDROOT)/doc/_build/html/en/index.html: $(shell find $(BUILDROOT)/base $(BUI
 julia-executable: julia-src-$(JULIA_BUILD_MODE)
 	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT)/ui $(JULIA_EXECUTABLE)
 
+julia-git:
+	# Save git information
+	-@$(MAKE) -C $(JULIAHOME)/base version_git.jl.phony
+
 julia-copystdlib:
 	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT)/stdlib
 
@@ -577,7 +581,7 @@ distcleanall: cleanall
 .PHONY: default debug release check-whitespace release-candidate \
 	julia-debug julia-release julia-stdlib julia-deps julia-deps-libs \
 	julia-ui-release julia-ui-debug julia-src-release julia-src-debug \
-	julia-executable \
+	julia-executable julia-git \
 	julia-symlink julia-base julia-sysimg julia-sysimg-ji julia-sysimg-release julia-sysimg-debug \
 	test testall testall1 test test-* test-revise-* \
 	clean distcleanall cleanall clean-* \

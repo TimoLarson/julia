@@ -377,8 +377,12 @@ JL_DLLEXPORT const char *jl_ver_string(void)
 static const char *git_info_string(const char *fld)
 {
     static jl_value_t *GIT_VERSION_INFO = NULL;
-    if (!GIT_VERSION_INFO)
+    if (!GIT_VERSION_INFO) {
+        if (!jl_base_module) {
+            return "base module not available so git version info also not available";
+        }
         GIT_VERSION_INFO = jl_get_global(jl_base_module, jl_symbol("GIT_VERSION_INFO"));
+    }
     jl_value_t *f = jl_get_field(GIT_VERSION_INFO, fld);
     assert(jl_is_string(f));
     return jl_string_data(f);
