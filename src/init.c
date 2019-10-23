@@ -778,7 +778,7 @@ void _julia_init(JL_IMAGE_SEARCH rel)
         jl_init_primitives();
         jl_init_main_module();
 
-        char* compilerpath = "/home/query/pkg/git/julia-precompile-native-dev2-build/usr/lib/julia/libcorecompiler.ji";
+        char* compilerpath = "/home/tim/pkg/git/julia-precompile-native-dev2-build/usr/lib/julia/libcorecompiler.ji";
         struct stat buffer;   
         if (stat (compilerpath, &buffer) == 0) {
             size_t count = 0;

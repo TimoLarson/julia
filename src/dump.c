@@ -2871,29 +2871,36 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
 
     serializer_worklist = worklist;
 
-    //DEBUG
-    pthread_t me = pthread_self();
-    unsigned long you = jl_thread_self();
-    jl_printf(JL_STDERR, "\njl_save_incremental pthread_equal: %i\n", pthread_equal(me, (pthread_t)you));
+    // ADDED FOR DEBUGGING
+    where = ios_pos(&f);
+    jl_printf(JL_STDERR, "write header offset: %ld\n", where);
 
     write_header(&f);
 
     // ADDED FOR DEBUGGING
     where = ios_pos(&f);
-    jl_printf(JL_STDERR, "after write_header offset: %ld\n", where);
+    jl_printf(JL_STDERR, "write worklist offset: %ld\n", where);
 
     // write description on contents
     write_work_list(&f);
+
+    // ADDED FOR DEBUGGING
+    where = ios_pos(&f);
+    jl_printf(JL_STDERR, "write dependency list offset: %ld\n", where);
+
     // write binary blob from caller
     int64_t srctextpos = write_dependency_list(&f, &udeps, mod_array);
     // write description of requirements for loading
     // this can return errors during deserialize,
     // best to keep it early (before any actual initialization)
-    jl_printf(JL_STDERR, "\nBefore write_mod_list\n");
+
+    // ADDED FOR DEBUGGING
+    where = ios_pos(&f);
+    jl_printf(JL_STDERR, "write mod list offset: %ld\n", where);
+
     jl_printf(JL_STDERR, "\nmod_array = %p\n", mod_array);
     write_mod_list(&f, mod_array);
     jl_printf(JL_STDERR, "\nAfter write_mod_list\n");
-    jl_printf(JL_STDERR, "\njl_save_incremental pthread_equal: %i\n", pthread_equal(me, (pthread_t)you));
 
     arraylist_new(&reinit_list, 0);
     htable_new(&edges_map, 0);
@@ -2943,11 +2950,26 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
 
     // ADDED FOR DEBUGGING
     where = ios_pos(s.s);
-    jl_printf(JL_STDERR, "before serialize worklist offset: %ld\n", where);
+    jl_printf(JL_STDERR, "serialize worklist offset: %ld\n", where);
 
     jl_serialize_value(&s, worklist);
+
+    // ADDED FOR DEBUGGING
+    where = ios_pos(s.s);
+    jl_printf(JL_STDERR, "serialize lambdas offset: %ld\n", where);
+
     jl_serialize_value(&s, lambdas);
+
+    // ADDED FOR DEBUGGING
+    where = ios_pos(s.s);
+    jl_printf(JL_STDERR, "serialize edges offset: %ld\n", where);
+
     jl_serialize_value(&s, edges);
+
+    // ADDED FOR DEBUGGING
+    where = ios_pos(s.s);
+    jl_printf(JL_STDERR, "serialize finalize offset: %ld\n", where);
+
     jl_finalize_serializer(&s);
     serializer_worklist = NULL;
 
