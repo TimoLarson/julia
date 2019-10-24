@@ -57,6 +57,10 @@ julia-copystdlib:
 	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT)/stdlib
 
 #julia-sysimg-ji : julia-stdlib julia-base julia-ui-$(JULIA_BUILD_MODE) | $(build_private_libdir)
+
+julia-corecompiler-ji: julia-executable | julia-copystdlib $(build_private_libdir)
+	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT) -f sysimage.mk corecompiler-ji JULIA_EXECUTABLE='$(JULIA_EXECUTABLE)'
+
 julia-libcorecompiler-ji: julia-executable | julia-copystdlib $(build_private_libdir)
 	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT) -f sysimage.mk libcorecompiler-ji JULIA_EXECUTABLE='$(JULIA_EXECUTABLE)'
 
@@ -102,6 +106,14 @@ julia-sysimg-ji : julia-stdlib julia-base julia-ui-$(JULIA_BUILD_MODE) | $(build
 
 julia-sysimg-bc : julia-stdlib julia-base julia-ui-$(JULIA_BUILD_MODE) | $(build_private_libdir)
 	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT) -f sysimage.mk sysimg-bc JULIA_EXECUTABLE='$(JULIA_EXECUTABLE)'
+
+# ADDED FOR LIBRARIES
+julia-mysysimg-ji : julia-stdlib julia-base julia-ui-$(JULIA_BUILD_MODE) | $(build_private_libdir)
+	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT) -f sysimage.mk mysysimg-ji JULIA_EXECUTABLE='$(JULIA_EXECUTABLE)'
+
+# ADDED FOR LIBRARIES
+julia-mysys-so : julia-stdlib julia-base julia-ui-$(JULIA_BUILD_MODE) | $(build_private_libdir)
+	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT) -f sysimage.mk mysys-so JULIA_EXECUTABLE='$(JULIA_EXECUTABLE)'
 
 julia-sysimg-release julia-sysimg-debug : julia-sysimg-% : julia-sysimg-ji julia-ui-%
 	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT) -f sysimage.mk sysimg-$*

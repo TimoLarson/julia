@@ -378,9 +378,16 @@ static const char *git_info_string(const char *fld)
 {
     static jl_value_t *GIT_VERSION_INFO = NULL;
     if (!GIT_VERSION_INFO) {
+
+        // ADDED FOR LIBRARY
         if (!jl_base_module) {
+            if (!strcmp(fld, "branch"))
+                return "precompile-native-dev2";
+            if (!strcmp(fld, "commit"))
+                return "ed80383ffe1a1e7f67a72781c97a7e8d8cf4234e";
             return "base module not available so git version info also not available";
         }
+
         GIT_VERSION_INFO = jl_get_global(jl_base_module, jl_symbol("GIT_VERSION_INFO"));
     }
     jl_value_t *f = jl_get_field(GIT_VERSION_INFO, fld);

@@ -2010,6 +2010,11 @@ static jl_value_t *jl_deserialize_value_any(jl_serializer_state *s, uint8_t tag,
         }
         jl_module_t *m = (jl_module_t*)jl_deserialize_value(s, NULL);
         jl_sym_t *sym = (jl_sym_t*)jl_deserialize_value(s, NULL);
+
+        // ADDED FOR DEBUGGING
+        int64_t where = ios_pos(s->s);
+        jl_printf(JL_STDERR, "offset: %ld\n", where);
+
         if (internal) {
             tn->module = m;
             tn->name = sym;
@@ -2364,12 +2369,26 @@ static jl_value_t *read_verify_mod_list(ios_t *s, arraylist_t *dependent_worlds,
                 "Main module uuid state is invalid for module deserialization.");
     }
     size_t i, l = jl_array_len(mod_list);
+
+    // ADDED FOR DEBUGGING
+    jl_(mod_list);
+    jl_printf(JL_STDERR, "read_verify_mod_list: letter l = %lu\n", l);
+
     for (i = 0; ; i++) {
         size_t len = read_int32(s);
+
+        // ADDED FOR DEBUGGING
+        jl_printf(JL_STDERR, "read_verify_mod_list: len = %lu\n", len);
+
         if (len == 0 && i == l)
             return NULL; // success
+
+        // MODIFIED FOR LIBRARIES
+        //if (len == 0 || i == l)
+        //    return jl_get_exceptionf(jl_errorexception_type, "Wrong number of entries in module list.");
         if (len == 0 || i == l)
             return jl_get_exceptionf(jl_errorexception_type, "Wrong number of entries in module list.");
+
         char *name = (char*)alloca(len + 1);
         ios_read(s, name, len);
         name[len] = '\0';
@@ -2390,10 +2409,16 @@ static jl_value_t *read_verify_mod_list(ios_t *s, arraylist_t *dependent_worlds,
 
 static int readstr_verify(ios_t *s, const char *str)
 {
+    jl_printf(JL_STDERR, "readstr_verify: %s\n", str);
     size_t i, len = strlen(str);
-    for (i = 0; i < len; ++i)
-        if ((char)read_uint8(s) != str[i])
+    jl_printf(JL_STDERR, "%lu\n", len);
+    for (i = 0; i < len; ++i) {
+        char c = (char)read_uint8(s);
+        jl_printf(JL_STDERR, "%c\n", c);
+        //if ((char)read_uint8(s) != str[i])
+        if (c != str[i])
             return 0;
+    }
     return 1;
 }
 

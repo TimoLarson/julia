@@ -5,11 +5,17 @@ include $(JULIAHOME)/Make.inc
 
 default: sysimg-$(JULIA_BUILD_MODE) # contains either "debug" or "release"
 all: sysimg-release sysimg-debug
+corecompiler-ji: $(build_private_libdir)/corecompiler.ji
 libcorecompiler-ji: $(build_private_libdir)/libcorecompiler.ji
 libcorecompiler-so: $(build_private_libdir)/libcorecompiler.so
 base-ji: $(JULIAHOME)/base/Base.ji
 sysimg-ji: $(build_private_libdir)/sys.ji
 sysimg-bc: $(build_private_libdir)/sys-bc.a
+
+# ADDED FOR LIBRARIES
+mysysimg-ji: $(build_private_libdir)/mysys.ji
+mysys-so: $(build_private_libdir)/mysys.so
+
 sysimg-release: $(build_private_libdir)/sys.$(SHLIB_EXT)
 sysimg-debug: $(build_private_libdir)/sys-debug.$(SHLIB_EXT)
 
@@ -103,6 +109,20 @@ $(build_private_libdir)/sys.ji: $(build_private_libdir)/corecompiler.ji $(JULIAH
 		false; \
 	fi )
 	@mv $@.tmp $@
+
+# ADDED FOR LIBRARIES
+$(build_private_libdir)/mysys.ji: $(build_private_libdir)/corecompiler.ji $(JULIAHOME)/VERSION $(BASE_SRCS) $(STDLIB_SRCS)
+	@$(call PRINT_JULIA, cd $(JULIAHOME)/base && \
+	if ! JULIA_BINDIR=$(call cygpath_w,$(build_bindir)) $(call spawn, $(JULIA_EXECUTABLE)) -g1 -O0 -C "$(JULIA_CPU_TARGET)" --output-ji $(call cygpath_w,$@).tmp $(JULIA_SYSIMG_BUILD_FLAGS) \
+			--output-incremental=yes --startup-file=no --warn-overwrite=yes --sysimage $(call cygpath_w,$<) mysysimg.jl $(RELBUILDROOT); then \
+		echo '*** This error might be fixed by running `make clean`. If the error persists$(COMMA) try `make cleanall`. ***'; \
+		false; \
+	fi )
+	@mv $@.tmp $@
+
+# ADDED FOR LIBRARIES
+$(build_private_libdir)/mysys.so: $(build_private_libdir)/mysys.ji.bc
+	$(build_private_libdir)/../../../usr/tools/clang -shared -fpic $(build_private_libdir)/mysys.ji.bc -o $(build_private_libdir)/mysys.so
 
 $(build_private_libdir)/sys2.ji: $(build_private_libdir)/corecompiler2.ji $(JULIAHOME)/VERSION $(BASE_SRCS) $(STDLIB_SRCS)
 	@$(call PRINT_JULIA, cd $(JULIAHOME)/base && \
