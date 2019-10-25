@@ -318,9 +318,7 @@ static void jl_serialize_datatype(jl_serializer_state *s, jl_datatype_t *dt) JL_
         tag = 10;
     }
 
-    char *dtname = jl_symbol_name(dt->name->name);
-    size_t dtnl = strlen(dtname);
-    if (dtnl > 4 && strcmp(&dtname[dtnl - 4], "##kw") == 0 && !internal && tag != 0) {
+    if (strncmp(jl_symbol_name(dt->name->name), "#kw#", 4) == 0 && !internal && tag != 0) {
         /* XXX: yuck, this is horrible, but the auto-generated kw types from the serializer isn't a real type, so we *must* be very careful */
         assert(tag == 6); // other struct types should never exist
         tag = 9;
@@ -338,7 +336,6 @@ static void jl_serialize_datatype(jl_serializer_state *s, jl_datatype_t *dt) JL_
             prefixed = (char*)malloc_s(l + 2);
             prefixed[0] = '#';
             strcpy(&prefixed[1], jl_symbol_name(mt->name));
-            // remove ##kw suffix
             prefixed[l-3] = 0;
             jl_sym_t *tname = jl_symbol(prefixed);
             free(prefixed);
@@ -831,7 +828,6 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
         write_int32(s->s, m->called);
         write_int32(s->s, m->nargs);
         write_int32(s->s, m->nospecialize);
-        write_int32(s->s, m->nkw);
         write_int8(s->s, m->isva);
         write_int8(s->s, m->pure);
         jl_serialize_value(s, (jl_value_t*)m->module);
@@ -1252,10 +1248,8 @@ static void write_mod_list(ios_t *s, jl_array_t *a)
 {
     jl_printf(JL_STDERR, "\nIn write_mod_list\n");
 
-    if (a) {
-
     size_t i;
-    size_t len = jl_array_len(a);
+    size_t len = a ? jl_array_len(a) : 0;
     for (i = 0; i < len; i++) {
         jl_module_t *m = (jl_module_t*)jl_array_ptr_ref(a, i);
         assert(jl_is_module(m));
@@ -1269,9 +1263,6 @@ static void write_mod_list(ios_t *s, jl_array_t *a)
             write_uint64(s, m->build_id);
         }
     }
-
-    } // if(a)
-
     write_int32(s, 0);
 }
 
@@ -1330,24 +1321,23 @@ static int64_t write_dependency_list(ios_t *s, jl_array_t **udepsp, jl_array_t *
     int64_t pos = 0;
     static jl_array_t *deps = NULL;
 
-    jl_array_t *udeps = NULL;
-    if (!jl_options.topbase) {
+    //if (!jl_options.topbase) {
 
-        if (!deps)
-            deps = (jl_array_t*)jl_get_global(jl_base_module, jl_symbol("_require_dependencies"));
+    if (!deps)
+        deps = (jl_array_t*)jl_get_global(jl_base_module, jl_symbol("_require_dependencies"));
 
-        // unique(deps) to eliminate duplicates while preserving order:
-        // we preserve order so that the topmost included .jl file comes first
-        static jl_value_t *unique_func = NULL;
-        if (!unique_func)
-            unique_func = jl_get_global(jl_base_module, jl_symbol("unique"));
-        jl_value_t *uniqargs[2] = {unique_func, (jl_value_t*)deps};
-        size_t last_age = jl_get_ptls_states()->world_age;
-        jl_get_ptls_states()->world_age = jl_world_counter;
-        udeps = (*udepsp = deps && unique_func ? (jl_array_t*)jl_apply(uniqargs, 2) : NULL);
-        jl_get_ptls_states()->world_age = last_age;
+    // unique(deps) to eliminate duplicates while preserving order:
+    // we preserve order so that the topmost included .jl file comes first
+    static jl_value_t *unique_func = NULL;
+    if (!unique_func)
+        unique_func = jl_get_global(jl_base_module, jl_symbol("unique"));
+    jl_value_t *uniqargs[2] = {unique_func, (jl_value_t*)deps};
+    size_t last_age = jl_get_ptls_states()->world_age;
+    jl_get_ptls_states()->world_age = jl_world_counter;
+    jl_array_t *udeps = (*udepsp = deps && unique_func ? (jl_array_t*)jl_apply(uniqargs, 2) : NULL);
+    jl_get_ptls_states()->world_age = last_age;
 
-    } // if (!jl_options.topbase)
+    //} // if (!jl_options.topbase)
 
     // write a placeholder for total size so that we can quickly seek past all of the
     // dependencies if we don't need them
@@ -1720,7 +1710,6 @@ static jl_value_t *jl_deserialize_value_method(jl_serializer_state *s, jl_value_
     m->called = read_int32(s->s);
     m->nargs = read_int32(s->s);
     m->nospecialize = read_int32(s->s);
-    m->nkw = read_int32(s->s);
     m->isva = read_int8(s->s);
     m->pure = read_int8(s->s);
     m->module = (jl_module_t*)jl_deserialize_value(s, (jl_value_t**)&m->module);
@@ -2046,8 +2035,6 @@ static jl_value_t *jl_deserialize_value_any(jl_serializer_state *s, uint8_t tag,
         int32_t nw = (sz == 0 ? 1 : (sz < 0 ? -sz : sz));
         size_t nb = nw * gmp_limb_size;
         void *buf = jl_gc_counted_malloc(nb);
-        if (buf == NULL)
-            jl_throw(jl_memory_exception);
         ios_read(s->s, (char*)buf, nb);
         jl_set_nth_field(v, 0, jl_box_int32(nw));
         jl_set_nth_field(v, 1, sizefield);
@@ -2259,8 +2246,7 @@ static jl_value_t *jl_deserialize_value(jl_serializer_state *s, jl_value_t **loc
 
 static void jl_insert_methods(jl_array_t *list)
 {
-    if (!list) return;
-    size_t i, l = jl_array_len(list);
+    size_t i, l = list ? jl_array_len(list) : 0;
     for (i = 0; i < l; i += 2) {
         jl_method_t *meth = (jl_method_t*)jl_array_ptr_ref(list, i);
         jl_tupletype_t *simpletype = (jl_tupletype_t*)jl_array_ptr_ref(list, i + 1);
@@ -2388,7 +2374,6 @@ static jl_value_t *read_verify_mod_list(ios_t *s, arraylist_t *dependent_worlds,
         //    return jl_get_exceptionf(jl_errorexception_type, "Wrong number of entries in module list.");
         if (len == 0 || i == l)
             return jl_get_exceptionf(jl_errorexception_type, "Wrong number of entries in module list.");
-
         char *name = (char*)alloca(len + 1);
         ios_read(s, name, len);
         name[len] = '\0';
@@ -2945,20 +2930,13 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
     jl_array_t *edges = jl_alloc_vec_any(0);
 
     size_t i;
-    size_t len;
-
-    if (mod_array) {
-
-    len = jl_array_len(mod_array);
+    size_t len = mod_array ? jl_array_len(mod_array) : 0;
     for (i = 0; i < len; i++) {
         jl_module_t *m = (jl_module_t*)jl_array_ptr_ref(mod_array, i);
         assert(jl_is_module(m));
         if (m->parent == m) // some toplevel modules (really just Base) aren't actually
             jl_collect_lambdas_from_mod(lambdas, m);
     }
-
-    } // if (mod_array)
-
     jl_collect_methtable_from_mod(lambdas, jl_type_type_mt);
     jl_collect_missing_backedges_to_mod(jl_type_type_mt);
     jl_collect_methtable_from_mod(lambdas, jl_nonfunction_mt);
@@ -3378,14 +3356,14 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
     arraylist_new(&dependent_worlds, 0);
 
     // verify that the system state is valid
-    if (!jl_options.topbase) {
-        jl_value_t *verify_fail = read_verify_mod_list(f, &dependent_worlds, mod_array);
-        if (verify_fail) {
-            arraylist_free(&dependent_worlds);
-            ios_close(f);
-            return verify_fail;
-        }
+    //if (!jl_options.topbase) {
+    jl_value_t *verify_fail = read_verify_mod_list(f, &dependent_worlds, mod_array);
+    if (verify_fail) {
+        arraylist_free(&dependent_worlds);
+        ios_close(f);
+        return verify_fail;
     }
+    //}
 
     // prepare to deserialize
     int en = jl_gc_enable(0);
@@ -3396,9 +3374,9 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
     arraylist_push(&backref_list, jl_main_module);
     arraylist_new(&flagref_list, 0);
     arraylist_push(&dependent_worlds, (void*)jl_world_counter);
-    if (!jl_options.topbase) {
-        arraylist_push(&dependent_worlds, (void*)jl_main_module->primary_world);
-    }
+    //if (!jl_options.topbase) {
+    arraylist_push(&dependent_worlds, (void*)jl_main_module->primary_world);
+    //}
     qsort(dependent_worlds.items, dependent_worlds.len, sizeof(size_t), size_isgreater);
 
     jl_serializer_state s = {

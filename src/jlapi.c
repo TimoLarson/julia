@@ -384,7 +384,7 @@ static const char *git_info_string(const char *fld)
             if (!strcmp(fld, "branch"))
                 return "precompile-native-dev2";
             if (!strcmp(fld, "commit"))
-                return "ed80383ffe1a1e7f67a72781c97a7e8d8cf4234e";
+                return "13d3b96ef946c61f50bce38a34671630ab122724";
             return "base module not available so git version info also not available";
         }
 
