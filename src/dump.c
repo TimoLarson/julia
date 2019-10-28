@@ -1320,9 +1320,9 @@ static int64_t write_dependency_list(ios_t *s, jl_array_t **udepsp, jl_array_t *
     int64_t initial_pos = 0;
     int64_t pos = 0;
     static jl_array_t *deps = NULL;
+    jl_array_t *udeps = NULL;
 
-    //if (!jl_options.topbase) {
-
+    if (jl_base_module) {
     if (!deps)
         deps = (jl_array_t*)jl_get_global(jl_base_module, jl_symbol("_require_dependencies"));
 
@@ -1334,16 +1334,16 @@ static int64_t write_dependency_list(ios_t *s, jl_array_t **udepsp, jl_array_t *
     jl_value_t *uniqargs[2] = {unique_func, (jl_value_t*)deps};
     size_t last_age = jl_get_ptls_states()->world_age;
     jl_get_ptls_states()->world_age = jl_world_counter;
-    jl_array_t *udeps = (*udepsp = deps && unique_func ? (jl_array_t*)jl_apply(uniqargs, 2) : NULL);
+    udeps = (*udepsp = deps && unique_func ? (jl_array_t*)jl_apply(uniqargs, 2) : NULL);
     jl_get_ptls_states()->world_age = last_age;
-
-    //} // if (!jl_options.topbase)
+    } // if (jl_base_module)
 
     // write a placeholder for total size so that we can quickly seek past all of the
     // dependencies if we don't need them
     initial_pos = ios_pos(s);
     write_uint64(s, 0);
-    if (udeps) {
+
+    if (udeps && jl_base_module) {
         size_t i, l = jl_array_len(udeps);
         for (i = 0; i < l; i++) {
             jl_value_t *deptuple = jl_array_ptr_ref(udeps, i);

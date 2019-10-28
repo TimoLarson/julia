@@ -83,6 +83,29 @@ endif
 
 SRCS += $(RUNTIME_SRCS)
 
+# ADDED FOR LIBRARIES
+$(BUILDDIR)/version_git.h.phony: $(SRCDIR)/version_git.sh
+ifneq ($(NO_GIT), 1)
+	sh $< $(SRCDIR) > $@
+	@# This to avoid touching git_version.h when it is not modified,
+	@# so that the system image does not need to be rebuilt.
+	@if ! cmp -s $@ version_git.h; then \
+		$(call PRINT_PERL,) \
+		mv $@ version_git.h; \
+	else \
+		rm -f $@; \
+	fi
+else
+ifeq ($(shell [ -f $(BUILDDIR)/version_git.h ] && echo "true"), true)
+	@# Give warning if boilerplate git is used
+	@if grep -q "Default output if git is not available" $(BUILDDIR)/version_git.h; then \
+		echo "WARNING: Using boilerplate git version info" >&2; \
+	fi
+else
+	$(warning "WARNING: Generating boilerplate git version info")
+	@sh $(SRCDIR)/version_git.sh $(SRCDIR) NO_GIT > $(BUILDDIR)/version_git.h
+endif
+endif
 
 # headers are used for dependency tracking, while public headers will be part of the dist
 UV_HEADERS :=
@@ -147,7 +170,7 @@ FLISP_EXECUTABLE := $(FLISP_EXECUTABLE_$(JULIA_BUILD_MODE))
 endif
 
 default: $(JULIA_BUILD_MODE) # contains either "debug" or "release"
-all: debug release
+all: debug release version_git.h.phony
 
 release debug: %: libjulia-%
 
@@ -343,6 +366,8 @@ libjulia-release: $(build_shlibdir)/libjulia.$(JL_MAJOR_MINOR_SHLIB_EXT) $(PUBLI
 
 clean:
 	-rm -fr $(build_shlibdir)/libjulia* $(build_shlibdir)/libccalltest* $(build_shlibdir)/libllvmcalltest*
+	-rm -f $(BUILDDIR)/version_git.jl
+	-rm -f $(BUILDDIR)/version_git.jl.phony
 	-rm -f $(BUILDDIR)/julia_flisp.boot $(BUILDDIR)/julia_flisp.boot.inc
 	-rm -f $(BUILDDIR)/*.dbg.obj $(BUILDDIR)/*.o $(BUILDDIR)/*.dwo $(BUILDDIR)/*.$(SHLIB_EXT) $(BUILDDIR)/*.a
 	-rm -f $(BUILDDIR)/julia_version.h
@@ -398,4 +423,4 @@ analyzegc: $(addprefix clang-sa-,$(RUNTIME_SRCS))
 clean-analyzegc:
 	rm -f $(build_shlibdir)/libGCCheckerPlugin.$(SHLIB_EXT)
 
-.PHONY: default all debug release clean cleanall clean-* libccalltest libllvmcalltest julia_flisp.boot.inc.phony analyzegc clang-sa-*
+.PHONY: default all debug release clean cleanall clean-* libccalltest libllvmcalltest julia_flisp.boot.inc.phony $(BUILDDIR)/version_git.h.phony analyzegc clang-sa-*

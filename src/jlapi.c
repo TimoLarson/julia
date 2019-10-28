@@ -15,6 +15,9 @@
 #include "julia_assert.h"
 #include "julia_internal.h"
 
+// ADDED FOR LIBRARIES
+#include "version_git.h"
+
 #ifdef __cplusplus
 #include <cfenv>
 extern "C" {
@@ -382,9 +385,9 @@ static const char *git_info_string(const char *fld)
         // ADDED FOR LIBRARY
         if (!jl_base_module) {
             if (!strcmp(fld, "branch"))
-                return "precompile-native-dev2";
+                return git_branch;
             if (!strcmp(fld, "commit"))
-                return "13d3b96ef946c61f50bce38a34671630ab122724";
+                return git_commit;
             return "base module not available so git version info also not available";
         }
 

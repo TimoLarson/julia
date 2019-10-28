@@ -52,6 +52,7 @@ julia-executable: julia-src-$(JULIA_BUILD_MODE)
 julia-git:
 	# Save git information
 	-@$(MAKE) -C $(JULIAHOME)/base version_git.jl.phony
+	-@$(MAKE) -C $(JULIAHOME)/src version_git.h.phony
 
 julia-copystdlib:
 	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT)/stdlib
