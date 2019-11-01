@@ -153,6 +153,9 @@ static jl_value_t *jl_bigint_type = NULL;
 static int gmp_limb_size = 0;
 static arraylist_t builtin_typenames;
 
+// ADDED FOR DEBUGGING
+int testit = 0;
+
 #define write_uint8(s, n) ios_putc((n), (s))
 #define read_uint8(s) ((uint8_t)ios_getc(s))
 #define write_int8(s, n) write_uint8(s, n)
@@ -204,6 +207,11 @@ static uint16_t read_uint16(ios_t *s) JL_NOTSAFEPOINT
 static void write_float64(ios_t *s, double x) JL_NOTSAFEPOINT
 {
     write_uint64(s, *((uint64_t*)&x));
+}
+
+void whereis(ios_t *f, char *s)
+{
+    int64_t where = ios_pos(f); jl_printf(JL_STDERR, "%s: %ld\n", s, where);
 }
 
 //#ifdef _P64
@@ -691,6 +699,10 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
         }
         else {
             for (i = 0; i < jl_array_len(ar); i++) {
+                if (testit) {
+                    jl_printf(JL_STDERR, "type:\n");
+                    jl_(jl_array_ptr_ref(v, i));
+                }
                 jl_serialize_value(s, jl_array_ptr_ref(v, i));
             }
         }
@@ -1246,23 +1258,31 @@ static void jl_collect_backedges(jl_array_t *s)
 // serialize information about all loaded modules
 static void write_mod_list(ios_t *s, jl_array_t *a)
 {
-    jl_printf(JL_STDERR, "\nIn write_mod_list\n");
+    //jl_printf(JL_STDERR, "\nIn write_mod_list\n");
 
     size_t i;
     size_t len = a ? jl_array_len(a) : 0;
+    //jl_printf(JL_STDERR, "len: %lu\n", len);
+    jl_(serializer_worklist);
     for (i = 0; i < len; i++) {
+        //whereis(s, "mod list item offset");
         jl_module_t *m = (jl_module_t*)jl_array_ptr_ref(a, i);
         assert(jl_is_module(m));
         if (!module_in_worklist(m)) {
             const char *modname = jl_symbol_name(m->name);
+            jl_printf(JL_STDERR, "modname: %s\n", modname);
             size_t l = strlen(modname);
+            //whereis(s, "before modname size offset");
             write_int32(s, l);
+            //whereis(s, "before modname offset");
             ios_write(s, modname, l);
+            //whereis(s, "after modname offset");
             write_uint64(s, m->uuid.hi);
             write_uint64(s, m->uuid.lo);
             write_uint64(s, m->build_id);
         }
     }
+    //whereis(s, "mod list zero offset");
     write_int32(s, 0);
 }
 
@@ -2361,6 +2381,7 @@ static jl_value_t *read_verify_mod_list(ios_t *s, arraylist_t *dependent_worlds,
     jl_printf(JL_STDERR, "read_verify_mod_list: letter l = %lu\n", l);
 
     for (i = 0; ; i++) {
+        whereis(s, "reading size modname offset");
         size_t len = read_int32(s);
 
         // ADDED FOR DEBUGGING
@@ -2372,18 +2393,35 @@ static jl_value_t *read_verify_mod_list(ios_t *s, arraylist_t *dependent_worlds,
         // MODIFIED FOR LIBRARIES
         //if (len == 0 || i == l)
         //    return jl_get_exceptionf(jl_errorexception_type, "Wrong number of entries in module list.");
-        if (len == 0 || i == l)
-            return jl_get_exceptionf(jl_errorexception_type, "Wrong number of entries in module list.");
+        if (len == 0)
+            return NULL;
         char *name = (char*)alloca(len + 1);
+        whereis(s, "reading before modname offset");
         ios_read(s, name, len);
         name[len] = '\0';
+        whereis(s, "read after modname offset");
         jl_uuid_t uuid;
         uuid.hi = read_uint64(s);
         uuid.lo = read_uint64(s);
         uint64_t build_id = read_uint64(s);
         jl_sym_t *sym = jl_symbol_n(name, len);
         jl_module_t *m = (jl_module_t*)jl_array_ptr_ref(mod_list, i);
-        if (!m || !jl_is_module(m) || m->uuid.hi != uuid.hi || m->uuid.lo != uuid.lo || m->name != sym || m->build_id != build_id) {
+        // FIXME: Figure out how to get the build_id to match for Main and Core
+        // between the C/C++ code and the incrementally loaded mysys.jl/mysys.so.
+        //if (!m || !jl_is_module(m) || m->uuid.hi != uuid.hi || m->uuid.lo != uuid.lo || m->name != sym || m->build_id != build_id) {
+        if (!m || !jl_is_module(m) || m->uuid.hi != uuid.hi || m->uuid.lo != uuid.lo || m->name != sym) {
+            jl_printf(JL_STDERR, "m: %p\n", m);
+            jl_printf(JL_STDERR, "jl_is_module(m): %i\n", jl_is_module(m));
+
+            jl_printf(JL_STDERR, "m->uuid.hi: %lu\n", m->uuid.hi);
+            jl_printf(JL_STDERR, "uuid.hi: %lu\n", uuid.hi);
+
+            jl_printf(JL_STDERR, "m->uuid.lo: %lu\n", m->uuid.lo);
+            jl_printf(JL_STDERR, "uuid.lo: %lu\n", uuid.lo);
+
+            jl_printf(JL_STDERR, "m->build_id: %lu\n", m->build_id);
+            jl_printf(JL_STDERR, "build_id: %lu\n", build_id);
+
             return jl_get_exceptionf(jl_errorexception_type,
                 "Invalid input in module list: expected %s.", name);
         }
@@ -2423,11 +2461,10 @@ JL_DLLEXPORT int jl_read_verify_header(ios_t *s)
 
 static void jl_finalize_serializer(jl_serializer_state *s)
 {
-    int64_t where = ios_pos(s->s);
-    jl_printf(JL_STDERR, "writing finalization to offset: %ld\n", where);
-
+    whereis(s->s, "writing finalization offset");
     // ADDED FOR DEBUGGING
-    write_int32(s->s, 41);
+    write_int32(s->s, 0x40);
+    write_int32(s->s, 0x41);
 
     size_t i, l;
     // save module initialization order
@@ -2447,9 +2484,9 @@ static void jl_finalize_serializer(jl_serializer_state *s)
     l = reinit_list.len;
 
     // ADDED FOR DEBUGGING
-    write_int32(s->s, 42);
+    write_int32(s->s, 0x42);
     write_int32(s->s, l);
-    write_int32(s->s, 43);
+    write_int32(s->s, 0x43);
 
     jl_printf(JL_STDERR, "reinit_list.len = %lu\n", l);
 
@@ -2522,12 +2559,12 @@ static void jl_reinit_item(jl_value_t *v, int how, arraylist_t *tracee_list)
 
 static jl_array_t *jl_finalize_deserializer(jl_serializer_state *s, arraylist_t *tracee_list)
 {
-    int64_t where = ios_pos(s->s);
-    jl_printf(JL_STDERR, "reading finalization from offset: %ld\n", where);
-
+    whereis(s->s, "reading finalization offset");
     // ADDED FOR DEBUGGING
     int val0 = read_int32(s->s);
     jl_printf(JL_STDERR, "val0 = %i\n", val0);
+    int val1 = read_int32(s->s);
+    jl_printf(JL_STDERR, "val1 = %i\n", val1);
 
     jl_array_t *init_order = (jl_array_t*)jl_deserialize_value(s, NULL);
 
@@ -2536,21 +2573,27 @@ static jl_array_t *jl_finalize_deserializer(jl_serializer_state *s, arraylist_t 
     jl_printf(JL_STDERR, "< init order\n");
 
     // ADDED FOR DEBUGGING
-    int val1 = read_int32(s->s);
-    jl_printf(JL_STDERR, "val1 = %i\n", val1);
     int val2 = read_int32(s->s);
     jl_printf(JL_STDERR, "val2 = %i\n", val2);
-    int val3 = read_int32(s->s);
-    jl_printf(JL_STDERR, "val3 = %i\n", val3);
 
     // run reinitialization functions
     int pos = read_int32(s->s);
+
+    int val3 = read_int32(s->s);
+    jl_printf(JL_STDERR, "val3 = %i\n", val3);
 
     jl_printf(JL_STDERR, "first pos = %i\n", pos);
 
     while (pos != -1) {
         int how = read_int32(s->s);
         jl_printf(JL_STDERR, "how = %i\n", how);
+        jl_printf(JL_STDERR, "backref_list =\n");
+        jl_((void*)&backref_list);
+        jl_printf(JL_STDERR, "pos = %i\n", pos);
+        jl_printf(JL_STDERR, "items =\n");
+
+        jl_printf(JL_STDERR, "z = %p\n", backref_list.items[pos]);
+        jl_((void*)backref_list.items);
         //jl_reinit_item((jl_value_t*)backref_list.items[pos], read_int32(s->s), tracee_list);
         jl_reinit_item((jl_value_t*)backref_list.items[pos], how, tracee_list);
         pos = read_int32(s->s);
@@ -2866,7 +2909,6 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
     char *tmpfname = strcat(strcpy((char *) alloca(strlen(fname)+8), fname), ".XXXXXX");
 
     // ADDED FOR DEBUGGING
-    int64_t where = 0;
     jl_printf(JL_STDERR, "jl_save_incremental file: %s\n", fname);
     jl_printf(JL_STDERR, "jl_save_incremental temp file: %s\n", tmpfname);
 
@@ -2880,37 +2922,21 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
     mod_array = jl_get_loaded_modules();
 
     serializer_worklist = worklist;
-
-    // ADDED FOR DEBUGGING
-    where = ios_pos(&f);
-    jl_printf(JL_STDERR, "write header offset: %ld\n", where);
-
+    //whereis(&f, "write header offset");
     write_header(&f);
-
-    // ADDED FOR DEBUGGING
-    where = ios_pos(&f);
-    jl_printf(JL_STDERR, "write worklist offset: %ld\n", where);
-
+    //whereis(&f, "write worklist offset");
     // write description on contents
     write_work_list(&f);
-
-    // ADDED FOR DEBUGGING
-    where = ios_pos(&f);
-    jl_printf(JL_STDERR, "write dependency list offset: %ld\n", where);
-
+    //whereis(&f, "write dependency list offset");
     // write binary blob from caller
     int64_t srctextpos = write_dependency_list(&f, &udeps, mod_array);
     // write description of requirements for loading
     // this can return errors during deserialize,
     // best to keep it early (before any actual initialization)
-
-    // ADDED FOR DEBUGGING
-    where = ios_pos(&f);
-    jl_printf(JL_STDERR, "write mod list offset: %ld\n", where);
-
-    jl_printf(JL_STDERR, "\nmod_array = %p\n", mod_array);
+    //whereis(&f, "write mod list offset");
+    //jl_printf(JL_STDERR, "\nmod_array = %p\n", mod_array);
     write_mod_list(&f, mod_array);
-    jl_printf(JL_STDERR, "\nAfter write_mod_list\n");
+    whereis(&f, "write after mod list offset");
 
     arraylist_new(&reinit_list, 0);
     htable_new(&edges_map, 0);
@@ -2950,29 +2976,25 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
         jl_get_ptls_states(),
         mod_array
     };
+    whereis(s.s, "serialize worklist offset");
+    /*
+    jl_(worklist);
+    for (i = 0; i < jl_array_len(worklist); i++) {
+        jl_printf(JL_STDERR, "i: %lu\n", i);
+        jl_(jl_array_ptr_ref(worklist, i));
+    }
+    */
 
-    // ADDED FOR DEBUGGING
-    where = ios_pos(s.s);
-    jl_printf(JL_STDERR, "serialize worklist offset: %ld\n", where);
-
+    jl_printf(JL_STDERR, "serialize worklist\n");
+    whereis(s.s, "...");
+    testit = 1;
     jl_serialize_value(&s, worklist);
-
-    // ADDED FOR DEBUGGING
-    where = ios_pos(s.s);
-    jl_printf(JL_STDERR, "serialize lambdas offset: %ld\n", where);
-
+    testit = 0;
+    whereis(s.s, "serialize lambdas offset");
     jl_serialize_value(&s, lambdas);
-
-    // ADDED FOR DEBUGGING
-    where = ios_pos(s.s);
-    jl_printf(JL_STDERR, "serialize edges offset: %ld\n", where);
-
+    whereis(s.s, "serialize edges offset");
     jl_serialize_value(&s, edges);
-
-    // ADDED FOR DEBUGGING
-    where = ios_pos(s.s);
-    jl_printf(JL_STDERR, "serialize finalize offset: %ld\n", where);
-
+    whereis(s.s, "serialize finalize offset");
     jl_finalize_serializer(&s);
     serializer_worklist = NULL;
 
@@ -3316,35 +3338,26 @@ static int trace_method(jl_typemap_entry_t *entry, void *closure)
 
 static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, const char *libpath)
 {
-    // ADDED FOR DEBUGGING
-    jl_printf(JL_STDERR, "_jl_restore_incremental libpath: %s\n", libpath);
-
+    /* ADDED */ jl_printf(JL_STDERR, "_jl_restore_incremental libpath: %s\n", libpath);
     JL_TIMING(LOAD_MODULE);
+    whereis(f, "read header offset");
     jl_ptls_t ptls = jl_get_ptls_states();
     if (ios_eof(f) || !jl_read_verify_header(f)) {
         ios_close(f);
         return jl_get_exceptionf(jl_errorexception_type,
                 "Precompile file header verification checks failed.");
     }
-
-    // ADDED FOR DEBUGGING
-    int64_t where = ios_pos(f);
-    jl_printf(JL_STDERR, "after deserialize header offset: %ld\n", where);
-
+    whereis(f, "read modlist/worklist offset");
     { // skip past the mod list
         size_t len;
         while ((len = read_int32(f)))
             ios_skip(f, len + 3 * sizeof(uint64_t));
     }
+    whereis(f, "read dependency list offset");
     { // skip past the dependency list
         size_t deplen = read_uint64(f);
         ios_skip(f, deplen);
     }
-
-    // ADDED FOR DEBUGGING
-    where = ios_pos(f);
-    jl_printf(JL_STDERR, "after mod and dependency list offset: %ld\n", where);
-
     jl_bigint_type = jl_base_module ? jl_get_global(jl_base_module, jl_symbol("BigInt")) : NULL;
     if (jl_bigint_type) {
         gmp_limb_size = jl_unbox_long(jl_get_global((jl_module_t*)jl_get_global(jl_base_module, jl_symbol("GMP")),
@@ -3357,6 +3370,7 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
 
     // verify that the system state is valid
     //if (!jl_options.topbase) {
+    whereis(f, "read mod list offset");
     jl_value_t *verify_fail = read_verify_mod_list(f, &dependent_worlds, mod_array);
     if (verify_fail) {
         arraylist_free(&dependent_worlds);
@@ -3364,6 +3378,9 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
         return verify_fail;
     }
     //}
+
+    whereis(f, "read after mod list offset");
+    jl_printf(JL_STDERR, "success\n");
 
     // prepare to deserialize
     int en = jl_gc_enable(0);
@@ -3385,18 +3402,10 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
         ptls,
         mod_array
     };
-
-    // ADDED FOR DEBUGGING
-    where = ios_pos(f);
-    jl_printf(JL_STDERR, "before jl_deserialize_value offset: %ld\n", where);
-
+    whereis(f, "before jl_deserialize_value offset");
     jl_array_t *restored = (jl_array_t*)jl_deserialize_value(&s, (jl_value_t**)&restored);
     serializer_worklist = restored;
-
-    // ADDED FOR DEBUGGING
-    where = ios_pos(s.s);
-    jl_printf(JL_STDERR, "after deserialize worklist offset: %ld\n", where);
-
+    whereis(f, "after jl_deserialize_value offset");
     // get list of external generic functions
     jl_value_t *external_methods = jl_deserialize_value(&s, &external_methods);
     jl_value_t *external_backedges = jl_deserialize_value(&s, &external_backedges);

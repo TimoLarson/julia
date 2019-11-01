@@ -782,8 +782,19 @@ void _julia_init(JL_IMAGE_SEARCH rel)
         struct stat buffer;   
         if (stat (compilerpath, &buffer) == 0) {
             size_t count = 0;
-            jl_array_t *empty_mod_list = jl_alloc_array_1d((jl_value_t*)jl_array_any_type, count);
-            jl_restore_incremental(compilerpath, empty_mod_list);
+            jl_array_t *mod_list = jl_alloc_array_1d((jl_value_t*)jl_array_any_type, count);
+            fprintf(stderr, "jl_core_module: %p\n", jl_core_module);
+            fprintf(stderr, "jl_main_module: %p\n", jl_main_module);
+            jl_array_ptr_1d_push(mod_list, (jl_value_t*)jl_main_module);
+            jl_array_ptr_1d_push(mod_list, (jl_value_t*)jl_core_module);
+            /*
+            jl_value_t *mod;
+            mod = jl_array_ptr_ref(mod_list, 0);
+            *mod = &jl_main_module;
+            mod = jl_array_ptr_ref(mod_list, 1);
+            *mod = &jl_core_module;
+            */
+            jl_restore_incremental(compilerpath, mod_list);
         }
 
         jl_load(jl_core_module, "boot.jl");
