@@ -1164,6 +1164,23 @@ JL_DLLEXPORT void jl_(void *jl_value) JL_NOTSAFEPOINT
     ptls->safe_restore = old_buf;
 }
 
+// Like jl_ above, but lets you supply the stream, e.g. so output is synchronized.
+JL_DLLEXPORT void jl__(JL_STREAM *s, void *jl_value) JL_NOTSAFEPOINT
+{
+    jl_ptls_t ptls = jl_get_ptls_states();
+    jl_jmp_buf *old_buf = ptls->safe_restore;
+    jl_jmp_buf buf;
+    ptls->safe_restore = &buf;
+    if (!jl_setjmp(buf, 0)) {
+        jl_static_show(s, (jl_value_t*)jl_value);
+        jl_printf(s,"\n");
+    }
+    else {
+        jl_printf(s, "\n!!! ERROR in jl__ -- ABORTING !!!\n");
+    }
+    ptls->safe_restore = old_buf;
+}
+
 JL_DLLEXPORT void jl_breakpoint(jl_value_t *v)
 {
     // put a breakpoint in your debugger here

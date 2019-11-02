@@ -439,6 +439,9 @@ static void jl_serialize_module(jl_serializer_state *s, jl_module_t *m)
         }
         else {
             write_int8(s->s, 1);
+            whereis(s->s, "Module and parent");
+            jl__(JL_STDERR, m);
+            jl__(JL_STDERR, m->parent);
             jl_serialize_value(s, m->parent);
         }
         return;
@@ -698,10 +701,13 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
                 ios_write(s->s, jl_array_typetagdata(ar), jl_array_len(ar));
         }
         else {
+            int testit_i = 0;
             for (i = 0; i < jl_array_len(ar); i++) {
-                if (testit) {
+                if (testit && testit_i < 100) {
                     jl_printf(JL_STDERR, "type:\n");
-                    jl_(jl_array_ptr_ref(v, i));
+                    jl__(JL_STDERR, jl_array_ptr_ref(v, i));
+                    jl__(JL_STDERR, jl_typeof(jl_array_ptr_ref(v, i)));
+                    testit_i += 1;
                 }
                 jl_serialize_value(s, jl_array_ptr_ref(v, i));
             }
@@ -1837,11 +1843,24 @@ static jl_value_t *jl_deserialize_value_module(jl_serializer_state *s) JL_GC_DIS
     if (usetable)
         arraylist_push(&backref_list, NULL);
     jl_sym_t *mname = (jl_sym_t*)jl_deserialize_value(s, NULL);
+    // ADDED FOR DEBUGGING
+    whereis(s->s, "after name offset");
+    jl__(JL_STDERR, mname);
     int ref_only = read_uint8(s->s);
     if (ref_only) {
         jl_value_t *m_ref;
-        if (ref_only == 1)
-            m_ref = jl_get_global((jl_module_t*)jl_deserialize_value(s, NULL), mname);
+        if (ref_only == 1) {
+            //m_ref = jl_get_global((jl_module_t*)jl_deserialize_value(s, NULL), mname);
+            whereis(s->s, "jl_module_t*");
+            whereis(s->s, "before a");
+            jl_module_t *m = (jl_module_t*)jl_deserialize_value(s, NULL);
+            whereis(s->s, "before b");
+            whereis(s->s, "before c");
+            jl__(JL_STDERR, m);
+            jl__(JL_STDERR, jl_typeof(m));
+            whereis(s->s, "after d");
+            m_ref = jl_get_global(m, mname);
+        }
         else
             m_ref = jl_array_ptr_ref(s->loaded_modules_array, read_int32(s->s));
         if (usetable)
@@ -2036,8 +2055,13 @@ static jl_value_t *jl_deserialize_value_any(jl_serializer_state *s, uint8_t tag,
             ios_read(s->s, (char*)&tn->hash, sizeof(tn->hash));
         }
         else {
+            jl__(JL_STDERR, m);
+            jl__(JL_STDERR, sym);
+            jl__(JL_STDERR, jl_get_global(m, sym));
             jl_datatype_t *dt = (jl_datatype_t*)jl_unwrap_unionall(jl_get_global(m, sym));
             assert(jl_is_datatype(dt));
+            jl_printf(JL_STDERR, "dt: %p\n", dt);
+            jl__(JL_STDERR, dt);
             tn = dt->name;
             if (usetable)
                 backref_list.items[pos] = tn;
@@ -2987,7 +3011,7 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
 
     jl_printf(JL_STDERR, "serialize worklist\n");
     whereis(s.s, "...");
-    testit = 1;
+    testit = 0;
     jl_serialize_value(&s, worklist);
     testit = 0;
     whereis(s.s, "serialize lambdas offset");

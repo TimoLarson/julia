@@ -778,6 +778,8 @@ void _julia_init(JL_IMAGE_SEARCH rel)
         jl_init_primitives();
         jl_init_main_module();
 
+        jl_load(jl_core_module, "/home/tim/pkg/git/julia-precompile-native-dev2/base/boot.jl");
+
         char* compilerpath = "/home/tim/pkg/git/julia-precompile-native-dev2-build/usr/lib/julia/mysys.ji";
         struct stat buffer;   
         if (stat (compilerpath, &buffer) == 0) {
@@ -797,7 +799,6 @@ void _julia_init(JL_IMAGE_SEARCH rel)
             jl_restore_incremental(compilerpath, mod_list);
         }
 
-        jl_load(jl_core_module, "boot.jl");
         post_boot_hooks();
     }
 

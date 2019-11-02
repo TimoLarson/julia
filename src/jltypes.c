@@ -951,7 +951,8 @@ jl_value_t *jl_substitute_var(jl_value_t *t, jl_tvar_t *var, jl_value_t *val)
 
 jl_value_t *jl_unwrap_unionall(jl_value_t *v)
 {
-    while (jl_is_unionall(v))
+    // ADDED 'v &&' because this was crashing on a null
+    while (v && jl_is_unionall(v))
         v = ((jl_unionall_t*)v)->body;
     return v;
 }
