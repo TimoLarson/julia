@@ -1164,7 +1164,9 @@ JL_DLLEXPORT void jl_(void *jl_value) JL_NOTSAFEPOINT
     ptls->safe_restore = old_buf;
 }
 
-// Like jl_ above, but lets you supply the stream, e.g. so output is synchronized.
+// Like jl_ above except:
+// * lets you supply the stream, e.g. so output is synchronized,
+// * on success does not add the \n so you can put more on the same line.
 JL_DLLEXPORT void jl__(JL_STREAM *s, void *jl_value) JL_NOTSAFEPOINT
 {
     jl_ptls_t ptls = jl_get_ptls_states();
@@ -1173,7 +1175,7 @@ JL_DLLEXPORT void jl__(JL_STREAM *s, void *jl_value) JL_NOTSAFEPOINT
     ptls->safe_restore = &buf;
     if (!jl_setjmp(buf, 0)) {
         jl_static_show(s, (jl_value_t*)jl_value);
-        jl_printf(s,"\n");
+        //jl_printf(s,"\n");
     }
     else {
         jl_printf(s, "\n!!! ERROR in jl__ -- ABORTING !!!\n");

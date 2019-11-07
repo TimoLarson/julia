@@ -2041,7 +2041,12 @@ static jl_value_t *jl_deserialize_value_any(jl_serializer_state *s, uint8_t tag,
 
         // ADDED FOR DEBUGGING
         int64_t where = ios_pos(s->s);
-        jl_printf(JL_STDERR, "offset: %ld\n", where);
+        jl_printf(JL_STDERR, "offset: %ld  ", where);
+        jl_printf(JL_STDERR, "module and sym: ");
+        jl__(JL_STDERR, m);
+        jl_printf(JL_STDERR, ".");
+        jl__(JL_STDERR, sym);
+        jl_printf(JL_STDERR, "\n");
 
         if (internal) {
             tn->module = m;
@@ -2055,13 +2060,14 @@ static jl_value_t *jl_deserialize_value_any(jl_serializer_state *s, uint8_t tag,
             ios_read(s->s, (char*)&tn->hash, sizeof(tn->hash));
         }
         else {
-            jl__(JL_STDERR, m);
-            jl__(JL_STDERR, sym);
+            jl_printf(JL_STDERR, "global: ");
             jl__(JL_STDERR, jl_get_global(m, sym));
+            jl_printf(JL_STDERR, "\n");
             jl_datatype_t *dt = (jl_datatype_t*)jl_unwrap_unionall(jl_get_global(m, sym));
             assert(jl_is_datatype(dt));
-            jl_printf(JL_STDERR, "dt: %p\n", dt);
+            jl_printf(JL_STDERR, "dt: %p\n:", dt);
             jl__(JL_STDERR, dt);
+            jl_printf(JL_STDERR, "\n");
             tn = dt->name;
             if (usetable)
                 backref_list.items[pos] = tn;

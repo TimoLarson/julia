@@ -49,6 +49,9 @@ $(BUILDROOT)/doc/_build/html/en/index.html: $(shell find $(BUILDROOT)/base $(BUI
 julia-executable: julia-src-$(JULIA_BUILD_MODE)
 	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT)/ui $(JULIA_EXECUTABLE)
 
+compiler_and_base-ji:
+	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT) -f sysimage.mk compiler_and_base-ji JULIA_EXECUTABLE='$(JULIA_EXECUTABLE)'
+
 julia-git:
 	# Save git information
 	-@$(MAKE) -C $(JULIAHOME)/base version_git.jl.phony

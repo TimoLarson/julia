@@ -16,6 +16,8 @@ sysimg-bc: $(build_private_libdir)/sys-bc.a
 mysysimg-ji: $(build_private_libdir)/mysys.ji
 mysys-so: $(build_private_libdir)/mysys.so
 
+compiler_and_base-ji: $(build_private_libdir)/compiler_and_base.ji
+
 sysimg-release: $(build_private_libdir)/sys.$(SHLIB_EXT)
 sysimg-debug: $(build_private_libdir)/sys-debug.$(SHLIB_EXT)
 
@@ -65,6 +67,22 @@ BASE_SRCS := $(sort $(shell find $(JULIAHOME)/base -name \*.jl -and -not -name s
 STDLIB_SRCS := $(JULIAHOME)/base/sysimg.jl $(shell find $(build_datarootdir)/julia/stdlib/$(VERSDIR)/*/src -name \*.jl) \
                     $(build_prefix)/manifest/Pkg
 RELBUILDROOT := $(shell $(JULIAHOME)/contrib/relative_path.sh "$(JULIAHOME)/base" "$(BUILDROOT)/base/")
+
+$(build_private_libdir)/compiler_and_base.ji: $(COMPILER_SRCS)
+	@$(call PRINT_JULIA, cd $(JULIAHOME)/base && \
+	$(call spawn,$(JULIA_EXECUTABLE)) -C "$(JULIA_CPU_TARGET)" --output-ji $(call cygpath_w,$@).tmp \
+		--output-incremental=yes --startup-file=no -g0 -O0 compiler_and_base.jl $(RELBUILDROOT))
+	@mv $@.tmp $@
+
+## ADDED FOR LIBRARIES
+#$(build_private_libdir)/mysys.ji: $(build_private_libdir)/corecompiler.ji $(JULIAHOME)/VERSION $(BASE_SRCS) $(STDLIB_SRCS)
+#	@$(call PRINT_JULIA, cd $(JULIAHOME)/base && \
+#	if ! JULIA_BINDIR=$(call cygpath_w,$(build_bindir)) $(call spawn, $(JULIA_EXECUTABLE)) -g1 -O0 -C "$(JULIA_CPU_TARGET)" --output-ji $(call cygpath_w,$@).tmp $(JULIA_SYSIMG_BUILD_FLAGS) \
+#			--output-incremental=yes --startup-file=no --warn-overwrite=yes --sysimage $(call cygpath_w,$<) mysysimg.jl $(RELBUILDROOT); then \
+#		echo '*** This error might be fixed by running `make clean`. If the error persists$(COMMA) try `make cleanall`. ***'; \
+#		false; \
+#	fi )
+#	@mv $@.tmp $@
 
 $(build_private_libdir)/corecompiler.ji: $(COMPILER_SRCS)
 	@$(call PRINT_JULIA, cd $(JULIAHOME)/base && \
