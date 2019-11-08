@@ -2,6 +2,7 @@
 
 Core.include(Main, "compiler/compiler.jl")
 Core.println("\n== compiler included ==\n")
+#=
 Core.include(Main, "Base.jl")
 
 using .Base
@@ -25,6 +26,9 @@ Core.println("\n== in sysimg.jl ==\n")
 Core.println("\n== Base: ", Base, " ==\n")
 #Core.println("\n== is_primary_base_module: ", is_primary_base_module, " ==\n")
 Core.println("\n== Base.is_primary_base_module: ", Base.is_primary_base_module, " ==\n")
+
+# ADDED FOR DEBUGGING
+#=
 
 zed1 = "z1"
 if Base.is_primary_base_module
@@ -88,12 +92,18 @@ let
 end
 end
 
+# ADDED FOR DEBUGGING
+=# # if false
+
 # Clear global state
 empty!(Core.ARGS)
 empty!(Base.ARGS)
 empty!(LOAD_PATH)
 @eval Base creating_sysimg = false
 Base.init_load_path() # want to be able to find external packages in userimg.jl
+
+# ADDED FOR DEBUGGING
+#=
 
 let
 tot_time_userimg = @elapsed (Base.isfile("userimg.jl") && Base.include(Main, "userimg.jl"))
@@ -111,5 +121,9 @@ print("Userimg: ──── "); Base.time_print(tot_time_userimg       * 10^9);
 end
 end
 
+# ADDED FOR DEBUGGING
+=# # if false
+
 empty!(LOAD_PATH)
 empty!(DEPOT_PATH)
+=#

@@ -17,6 +17,7 @@ mysysimg-ji: $(build_private_libdir)/mysys.ji
 mysys-so: $(build_private_libdir)/mysys.so
 
 compiler_and_base-ji: $(build_private_libdir)/compiler_and_base.ji
+compiler_and_base-so: $(build_private_libdir)/compiler_and_base.so
 
 sysimg-release: $(build_private_libdir)/sys.$(SHLIB_EXT)
 sysimg-debug: $(build_private_libdir)/sys-debug.$(SHLIB_EXT)
@@ -73,6 +74,10 @@ $(build_private_libdir)/compiler_and_base.ji: $(COMPILER_SRCS)
 	$(call spawn,$(JULIA_EXECUTABLE)) -C "$(JULIA_CPU_TARGET)" --output-ji $(call cygpath_w,$@).tmp \
 		--output-incremental=yes --startup-file=no -g0 -O0 compiler_and_base.jl $(RELBUILDROOT))
 	@mv $@.tmp $@
+
+# ADDED FOR LIBRARIES
+$(build_private_libdir)/compiler_and_base.so: $(build_private_libdir)/compiler_and_base.ji.bc
+	$(build_private_libdir)/../../../usr/tools/clang -shared -fpic $(build_private_libdir)/mysys.ji.bc -o $(build_private_libdir)/compiler_and_base.so
 
 ## ADDED FOR LIBRARIES
 #$(build_private_libdir)/mysys.ji: $(build_private_libdir)/corecompiler.ji $(JULIAHOME)/VERSION $(BASE_SRCS) $(STDLIB_SRCS)
