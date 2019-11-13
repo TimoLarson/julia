@@ -71,8 +71,8 @@ RELBUILDROOT := $(shell $(JULIAHOME)/contrib/relative_path.sh "$(JULIAHOME)/base
 
 $(build_private_libdir)/compiler_and_base.ji: $(COMPILER_SRCS)
 	@$(call PRINT_JULIA, cd $(JULIAHOME)/base && \
-	$(call spawn,$(JULIA_EXECUTABLE)) -C "$(JULIA_CPU_TARGET)" --output-ji $(call cygpath_w,$@).tmp \
-		--output-incremental=yes --startup-file=no -g0 -O0 compiler_and_base.jl $(RELBUILDROOT))
+	$(call spawn,gdb --args $(JULIA_EXECUTABLE)) -C "$(JULIA_CPU_TARGET)" --output-ji $(call cygpath_w,$@).tmp \
+		--warn-overwrite=yes --output-incremental=yes --startup-file=no -g0 -O0 compiler_and_base.jl $(RELBUILDROOT))
 	@mv $@.tmp $@
 
 # ADDED FOR LIBRARIES

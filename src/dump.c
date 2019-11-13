@@ -3,6 +3,11 @@
 /*
   saving and restoring system images
 */
+
+// ADDED FOR DEBUGGING
+#include <stdio.h>
+#include <unistd.h>
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -3272,37 +3277,73 @@ static void jl_update_backref_list(jl_value_t *old, jl_value_t *_new, size_t sta
     }
 }
 
+/* ADDED */
+void show_worlds(arraylist_t *dependent_worlds)
+{
+    jl__(JL_STDERR, dependent_worlds);
+    jl_printf(JL_STDERR, "\n");
+    jl_uv_flush(JL_STDERR);
+    size_t i, l = dependent_worlds->len;
+    jl_printf(JL_STDERR, "dependent_worlds size = %lu\n", l);
+    jl_uv_flush(JL_STDERR);
+    for (i = 0; i < l; i++) {
+        size_t depworld = (size_t)dependent_worlds->items[i];
+        jl_printf(JL_STDERR, "dependent_worlds[%lu] = %lu\n", i, depworld);
+        jl_uv_flush(JL_STDERR);
+    }
+}
+
 // repeatedly look up older methods until we come to one that existed
 // at the time this module was serialized (e.g. ignoring deletion)
 static jl_method_t *jl_lookup_method_worldset(jl_methtable_t *mt, jl_datatype_t *sig, arraylist_t *dependent_worlds)
 {
+    /* ADDED */ jl_printf(JL_STDERR, "in jl_lookup_method_worldset; dependent_worlds:\n");
+    /* ADDED */ jl_printf(JL_STDERR, "methtable name: ");
+    /* ADDED */ jl__(JL_STDERR, mt->name);
+    /* ADDED */ jl_printf(JL_STDERR, "\n");
+    /* ADDED */ jl_uv_flush(JL_STDERR);
+    /* ADDED */ show_worlds(dependent_worlds);
     size_t world = jl_world_counter;
+    /* ADDED */ jl_printf(JL_STDERR, "jl_world_counter = %lu\n", jl_world_counter);
+    /* ADDED */ jl_uv_flush(JL_STDERR);
     jl_typemap_entry_t *entry;
+    jl_method_t *_new = NULL;
     while (1) {
         entry = jl_typemap_assoc_by_type(
             mt->defs, (jl_value_t*)sig, NULL, /*subtype*/0, /*offs*/0, world, /*max_world_mask*/(~(size_t)0) >> 1);
         assert(entry);
-        /* ADDED */ jl_printf(JL_STDERR, "methtable name: ");
-        /* ADDED */ jl__(JL_STDERR, mt->name);
-        /* ADDED */ jl_printf(JL_STDERR, "\n");
+        // ADDED: Bad hack to prevent segfault
+        if (entry == NULL)
+            return _new;
 
-        /* ADDED */ jl_printf(JL_STDERR, "type:\n");
-        jl_value_t *v = entry->func.value;
-        jl_value_t *t = jl_typeof(v);
+        /* ADDED */ jl_printf(JL_STDERR, "entry ptr: %p\n", entry);
+        /* ADDED */ jl_value_t *v = entry->func.value;
+        /* ADDED */ jl_printf(JL_STDERR, "entry->func.value ptr: %p\n", v);
+        /* ADDED */ jl_value_t *t = jl_typeof(v);
+        /* ADDED */ jl_printf(JL_STDERR, "v type ptr: %p\n", v);
+        /* ADDED */ jl_printf(JL_STDERR, "v type:\n");
         /* ADDED */ jl__(JL_STDERR, t);
+        /* ADDED */ jl_printf(JL_STDERR, "\n");
+        /* ADDED */ jl_uv_flush(JL_STDERR);
 
         /* ADDED */ jl_printf(JL_STDERR, "method name: ");
         /* ADDED */ jl__(JL_STDERR, entry->func.method->name);
         /* ADDED */ jl__(JL_STDERR, mt->name);
         /* ADDED */ jl_printf(JL_STDERR, "\n");
+        /* ADDED */ jl_uv_flush(JL_STDERR);
 
         //jl_method_t *_new = (jl_method_t*)entry->func.value;
-        jl_method_t *_new = entry->func.method;
+        _new = entry->func.method;
         world = lowerbound_dependent_world_set(_new->primary_world, dependent_worlds);
+        /* ADDED */ jl_printf(JL_STDERR, "world = %lu\n", world);
+        /* ADDED */ jl_uv_flush(JL_STDERR);
+        /* ADDED */ jl_printf(JL_STDERR, "_new->primary_world = %lu\n", _new->primary_world);
+        /* ADDED */ jl_uv_flush(JL_STDERR);
         if (world == _new->primary_world) {
             return _new;
         }
         /* ADDED */ jl_printf(JL_STDERR, "wrap\n\n");
+        /* ADDED */ jl_uv_flush(JL_STDERR);
     }
 }
 
@@ -3338,6 +3379,22 @@ static jl_method_instance_t *jl_recache_method_instance(jl_method_instance_t *mi
 
 static void jl_recache_other(arraylist_t *dependent_worlds)
 {
+    /* ADDED */ sleep(1);
+    /* ADDED */ printf("0 flagref_list.len: %lu\n", flagref_list.len);
+    /* ADDED */ jl_printf(JL_STDERR, "ABCDEF\n");
+    /* ADDED */ jl__(JL_STDERR, dependent_worlds);
+    /* ADDED */ jl_printf(JL_STDERR, "\n");
+    /* ADDED */ jl_printf(JL_STDERR, "flagref_list.len: %lu\n", flagref_list.len);
+    /* ADDED */ jl_uv_flush(JL_STDERR);
+    /* ADDED */ printf("1 flagref_list.len: %lu\n", flagref_list.len);
+    /* ADDED */ printf("2 flagref_list.len: %lu\n", flagref_list.len);
+    /* ADDED */ printf("3 flagref_list.len: %lu\n", flagref_list.len);
+    /* ADDED */ printf("4 flagref_list.len: %lu\n", flagref_list.len);
+    /* ADDED */ printf("5 flagref_list.len: %lu\n", flagref_list.len);
+    /* ADDED */ printf("6 flagref_list.len: %lu\n", flagref_list.len);
+    /* ADDED */ printf("7 flagref_list.len: %lu\n", flagref_list.len);
+    /* ADDED */ sleep(1);
+
     size_t i = 0;
     while (i < flagref_list.len) {
         jl_value_t **loc = (jl_value_t**)flagref_list.items[i + 0];
@@ -3374,8 +3431,24 @@ static void jl_link_shared_lib(const char *libpath)
         if (!module->libhandle)
             module->libhandle = jl_dlopen(libpath, JL_RTLD_GLOBAL | JL_RTLD_DEEPBIND);
         void *lib = module->libhandle;
-        jl_dlsym(lib, codeinst->functionObjectsDecls.functionObject, (void**)&(codeinst->invoke), 1);
-        jl_dlsym(lib, codeinst->functionObjectsDecls.specFunctionObject, (void**)&(codeinst->specptr), 1);
+        int found = jl_dlsym(lib, codeinst->functionObjectsDecls.functionObject, (void**)&(codeinst->invoke), 0);
+        if (!found){
+            void *libjulia = jl_dlopen(NULL, JL_RTLD_GLOBAL | JL_RTLD_DEEPBIND);
+            found = jl_dlsym(libjulia, codeinst->functionObjectsDecls.functionObject, (void**)&(codeinst->invoke), 0);
+            if (!found){
+                jl_printf(JL_STDERR, "Symbol not found: %s\n", codeinst->functionObjectsDecls.functionObject);
+                exit(1);
+            }
+        }
+        jl_dlsym(lib, codeinst->functionObjectsDecls.specFunctionObject, (void**)&(codeinst->specptr), 0);
+        if (!found){
+            void *libjulia = jl_dlopen(NULL, JL_RTLD_GLOBAL | JL_RTLD_DEEPBIND);
+            jl_dlsym(libjulia, codeinst->functionObjectsDecls.specFunctionObject, (void**)&(codeinst->specptr), 0);
+            if (!found){
+                jl_printf(JL_STDERR, "Symbol not found: %s\n", codeinst->functionObjectsDecls.specFunctionObject);
+                exit(1);
+            }
+        }
         i += 1;
     }
 }
