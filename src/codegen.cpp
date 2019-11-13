@@ -1276,6 +1276,13 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
                     jl_add_code_in_flight(f, codeinst, DL);
             }
 
+            // ADDED to see if a particular function gets added to the shadow module
+            const char *name = codeinst->functionObjectsDecls.functionObject;
+            if (!strcmp("jfptr_analyze_method!_2181", name)){
+                jl_printf(JL_STDERR, "stopping jl_compile_linfo because found...\n");
+                jl_uv_flush(JL_STDERR);
+            }
+
             // Step 5. Add the result to the execution engine now
             //if (codeinst->natived != 2)
                 //jl_finalize_module(m.release(), !toplevel);
@@ -1288,11 +1295,20 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
                 jl_printf(JL_STDERR, "mark as native\n");
                 jl_uv_flush(JL_STDERR);
             }
+
+            // ADDED to see if a particular function gets added to the shadow module
+            name = codeinst->functionObjectsDecls.functionObject;
+            if (!strcmp("jfptr_analyze_method!_2181", name)){
+                jl_printf(JL_STDERR, "...stopping jl_compile_linfo because found\n");
+                jl_uv_flush(JL_STDERR);
+                //*((int*)0) = 0;
+            }
+
         }
         // ADDED
         /*
         const char *name = codeinst->functionObjectsDecls.functionObject;
-        if (!strcmp("jfptr_limit_type_size_1457", name)){
+        if (!strcmp("jfptr_analyze_method!_2181", name)){
             jl_printf(JL_STDERR, "stopping jl_compile_linfo because found\n");
             jl_uv_flush(JL_STDERR);
             *((int*)0) = 0;

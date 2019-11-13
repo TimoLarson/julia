@@ -2502,9 +2502,8 @@ JL_DLLEXPORT int jl_read_verify_header(ios_t *s)
 static void jl_finalize_serializer(jl_serializer_state *s)
 {
     whereis(s->s, "writing finalization offset");
-    // ADDED FOR DEBUGGING
-    write_int32(s->s, 0x40);
-    write_int32(s->s, 0x41);
+
+    /*ADDED*/write_int32(s->s, 12340);
 
     size_t i, l;
     // save module initialization order
@@ -2520,13 +2519,14 @@ static void jl_finalize_serializer(jl_serializer_state *s)
     jl_printf(JL_STDERR, "< jl_module_init_order =\n");
     jl_serialize_value(s, jl_module_init_order);
 
+    /*ADDED*/write_int32(s->s, 12341);
+
     // record list of reinitialization functions
     l = reinit_list.len;
 
-    // ADDED FOR DEBUGGING
-    write_int32(s->s, 0x42);
     write_int32(s->s, l);
-    write_int32(s->s, 0x43);
+
+    /*ADDED*/write_int32(s->s, 12342);
 
     jl_printf(JL_STDERR, "reinit_list.len = %lu\n", l);
 
@@ -2600,44 +2600,25 @@ static void jl_reinit_item(jl_value_t *v, int how, arraylist_t *tracee_list)
 static jl_array_t *jl_finalize_deserializer(jl_serializer_state *s, arraylist_t *tracee_list)
 {
     whereis(s->s, "reading finalization offset");
-    // ADDED FOR DEBUGGING
-    int val0 = read_int32(s->s);
-    jl_printf(JL_STDERR, "val0 = %i\n", val0);
-    int val1 = read_int32(s->s);
-    jl_printf(JL_STDERR, "val1 = %i\n", val1);
+
+    /*ADDED*/int flag_12340 = read_int32(s->s); jl_printf(JL_STDERR, "flag_12340 = %i\n", flag_12340);
 
     jl_array_t *init_order = (jl_array_t*)jl_deserialize_value(s, NULL);
+    jl_printf(JL_STDERR, "init order: "); jl_(init_order); jl_printf(JL_STDERR, "end\n");
 
-    jl_printf(JL_STDERR, "init order\n");
-    jl_(init_order);
-    jl_printf(JL_STDERR, "< init order\n");
+    /*ADDED*/int flag_12341 = read_int32(s->s); jl_printf(JL_STDERR, "flag_12341 = %i\n", flag_12341);
 
-    // ADDED FOR DEBUGGING
-    int val2 = read_int32(s->s);
-    jl_printf(JL_STDERR, "val2 = %i\n", val2);
+    /*ADDED*/int length = read_int32(s->s);
+    /*ADDED*/jl_printf(JL_STDERR, "length = %i\n", length);
+
+    /*ADDED*/int flag_12342 = read_int32(s->s); jl_printf(JL_STDERR, "flag_12342 = %i\n", flag_12342);
 
     // run reinitialization functions
     int pos = read_int32(s->s);
 
-    int val3 = read_int32(s->s);
-    jl_printf(JL_STDERR, "val3 = %i\n", val3);
-
-    jl_printf(JL_STDERR, "first pos = %i\n", pos);
-
     while (pos != -1) {
-        int how = read_int32(s->s);
-        jl_printf(JL_STDERR, "how = %i\n", how);
-        jl_printf(JL_STDERR, "backref_list =\n");
-        jl_((void*)&backref_list);
-        jl_printf(JL_STDERR, "pos = %i\n", pos);
-        jl_printf(JL_STDERR, "items =\n");
-
-        jl_printf(JL_STDERR, "z = %p\n", backref_list.items[pos]);
-        jl_((void*)backref_list.items);
-        //jl_reinit_item((jl_value_t*)backref_list.items[pos], read_int32(s->s), tracee_list);
-        jl_reinit_item((jl_value_t*)backref_list.items[pos], how, tracee_list);
+        jl_reinit_item((jl_value_t*)backref_list.items[pos], read_int32(s->s), tracee_list);
         pos = read_int32(s->s);
-        jl_printf(JL_STDERR, "next pos = %i\n", pos);
     }
     return init_order;
 }
@@ -3280,8 +3261,6 @@ static void jl_update_backref_list(jl_value_t *old, jl_value_t *_new, size_t sta
 /* ADDED */
 void show_worlds(arraylist_t *dependent_worlds)
 {
-    jl__(JL_STDERR, dependent_worlds);
-    jl_printf(JL_STDERR, "\n");
     jl_uv_flush(JL_STDERR);
     size_t i, l = dependent_worlds->len;
     jl_printf(JL_STDERR, "dependent_worlds size = %lu\n", l);
@@ -3382,7 +3361,7 @@ static void jl_recache_other(arraylist_t *dependent_worlds)
     /* ADDED */ sleep(1);
     /* ADDED */ printf("0 flagref_list.len: %lu\n", flagref_list.len);
     /* ADDED */ jl_printf(JL_STDERR, "ABCDEF\n");
-    /* ADDED */ jl__(JL_STDERR, dependent_worlds);
+    /* ADDED */ show_worlds(dependent_worlds);
     /* ADDED */ jl_printf(JL_STDERR, "\n");
     /* ADDED */ jl_printf(JL_STDERR, "flagref_list.len: %lu\n", flagref_list.len);
     /* ADDED */ jl_uv_flush(JL_STDERR);

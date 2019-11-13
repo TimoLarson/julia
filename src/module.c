@@ -106,6 +106,9 @@ static jl_binding_t *new_binding(jl_sym_t *name)
 // get binding for assignment
 JL_DLLEXPORT jl_binding_t *jl_get_binding_wr(jl_module_t *m, jl_sym_t *var, int error)
 {
+    jl_printf(JL_STDERR, "%s <- m->name\n", jl_symbol_name(m->name));
+    jl__(JL_STDERR, var);
+    jl_printf(JL_STDERR, " <- var; error = %i\n", error);
     JL_LOCK_NOGC(&m->lock);
     jl_binding_t **bp = (jl_binding_t**)ptrhash_bp(&m->bindings, var);
     jl_binding_t *b = *bp;
