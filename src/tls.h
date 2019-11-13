@@ -7,16 +7,12 @@
 
 // Copied from libuv. Add `JL_CONST_FUNC` so that the compiler
 // can optimize this better.
-static unsigned long jl_thread_self(void)
+static inline unsigned long JL_CONST_FUNC jl_thread_self(void)
 {
 #ifdef _OS_WINDOWS_
     return (unsigned long)GetCurrentThreadId();
 #else
-    int y = 2;
-    int x = y;
-    pthread_t z = pthread_self();
-    y = x;
-    return (unsigned long)z;
+    return (unsigned long)pthread_self();
 #endif
 }
 

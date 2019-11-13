@@ -223,12 +223,8 @@ JL_DLLEXPORT void jl_atexit_hook(int exitcode)
 
     jl_ptls_t ptls = jl_get_ptls_states();
 
-    if (exitcode == 0) {
-        pthread_t me = pthread_self();
-        unsigned long you = jl_thread_self();
-        jl_printf(JL_STDERR, "\npthread_equal: %i\n", pthread_equal(me, (pthread_t)you));
+    if (exitcode == 0)
         jl_write_compiler_output();
-    }
     jl_print_gc_stats(JL_STDERR);
     if (jl_options.code_coverage)
         jl_write_coverage_data(jl_options.output_code_coverage);
@@ -782,7 +778,7 @@ void _julia_init(JL_IMAGE_SEARCH rel)
         jl_load(jl_core_module, "/home/query/pkg/git/julia-precompile-native-dev2/base/boot.jl");
 
         char* compilerpath = "/home/query/pkg/git/julia-precompile-native-dev2-build/usr/lib/julia/compiler_and_base.ji";
-        struct stat buffer;   
+        struct stat buffer;
         if (stat (compilerpath, &buffer) == 0) {
             size_t count = 0;
             jl_array_t *mod_list = jl_alloc_array_1d((jl_value_t*)jl_array_any_type, count);

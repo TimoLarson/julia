@@ -106,9 +106,6 @@ static jl_binding_t *new_binding(jl_sym_t *name)
 // get binding for assignment
 JL_DLLEXPORT jl_binding_t *jl_get_binding_wr(jl_module_t *m, jl_sym_t *var, int error)
 {
-    //jl_printf(JL_STDERR, "%s <- m->name\n", jl_symbol_name(m->name));
-    //jl__(JL_STDERR, var);
-    //jl_printf(JL_STDERR, " <- var; error = %i\n", error);
     JL_LOCK_NOGC(&m->lock);
     jl_binding_t **bp = (jl_binding_t**)ptrhash_bp(&m->bindings, var);
     jl_binding_t *b = *bp;
@@ -254,8 +251,6 @@ static jl_binding_t *using_resolve_binding(jl_module_t *m JL_PROPAGATES_ROOT, jl
     return b;
 }
 
-extern int startdebug;
-
 // get binding for reading. might return NULL for unbound.
 static jl_binding_t *jl_get_binding_(jl_module_t *m, jl_sym_t *var, modstack_t *st)
 {
@@ -268,7 +263,6 @@ static jl_binding_t *jl_get_binding_(jl_module_t *m, jl_sym_t *var, modstack_t *
         }
         tmp = tmp->prev;
     }
-
     JL_LOCK(&m->lock);
     jl_binding_t *b = _jl_get_module_binding(m, var);
     if (b == HT_NOTFOUND || b->owner == NULL) {
@@ -550,14 +544,6 @@ JL_DLLEXPORT jl_binding_t *jl_get_module_binding(jl_module_t *m JL_PROPAGATES_RO
 
 JL_DLLEXPORT jl_value_t *jl_get_global(jl_module_t *m, jl_sym_t *var)
 {
-    //DEBUG
-    pthread_t me = pthread_self();
-    unsigned long you = jl_thread_self();
-    int i = pthread_equal(me, (pthread_t)you);
-    int j = i;
-    i = j;
-    //jl_printf(JL_STDERR, "\njl_get_global pthread_equal: %i\n", pthread_equal(me, (pthread_t)you));
-
     jl_binding_t *b = jl_get_binding(m, var);
     if (b == NULL) return NULL;
     if (b->deprecated) jl_binding_deprecation_warning(m, b);

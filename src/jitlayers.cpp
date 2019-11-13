@@ -893,12 +893,6 @@ void** jl_emit_and_add_to_shadow(GlobalVariable *gv, void *gvarinit)
 {
     PointerType *T = cast<PointerType>(gv->getType()->getElementType()); // pointer is the only supported type here
 
-    //DEBUGGING
-    if (jl_options.outputji && jl_options.incremental) {
-        jl_safe_printf("In jl_emit_and_add_to_shadow\n");
-        jl_safe_printf("    %s\n", gv->getName().str().c_str());
-    }
-
     GlobalVariable *shadowvar = NULL;
     if (imaging_mode)
         shadowvar = global_proto(gv, shadow_output);
@@ -933,21 +927,6 @@ void* jl_get_globalvar(GlobalVariable *gv)
 // clones the contents of the module `m` to the shadow_output collector
 void jl_add_to_shadow(Module *m)
 {
-    /*
-    if (jl_options.outputji && jl_options.incremental) {
-        if (!addtolib) {
-            jl_safe_printf("Not adding\n");
-
-            // print which functions were rejected by the addtolib flag
-            for (Module::iterator I = m->begin(), E = m->end(); I != E; ++I) {
-                Function *F = &*I;
-                if (!F->isDeclaration()) {
-                    jl_safe_printf("    %s\n", F->getName().str().c_str());
-                }
-            }
-        }
-    }
-    */
 #ifndef KEEP_BODIES
     if (!imaging_mode && !jl_options.outputjitbc &&
             !(jl_options.outputji && jl_options.incremental)
@@ -971,7 +950,6 @@ void jl_add_to_shadow(Module *m)
         }
     }
     jl_merge_module(shadow_output, std::move(clone));
-    //* ADDED */ jl_safe_printf("merged\n");
 }
 
 static void emit_offset_table(Module *mod, const std::vector<GlobalValue*> &vars, StringRef name)

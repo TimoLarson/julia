@@ -103,8 +103,6 @@ extern "C" {
 
 #include "builtin_proto.h"
 
-int stopnow = 0;
-
 #ifdef HAVE_SSP
 extern uintptr_t __stack_chk_guard;
 extern void __stack_chk_fail();
@@ -1232,11 +1230,7 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
         // Step 3. actually do the work of emitting the function
         std::unique_ptr<Module> m;
         JL_TRY {
-            //jl_printf(JL_STDERR, "jl_compile_linfo before emit_function\n");
-            //jl_uv_flush(JL_STDERR);
             m = emit_function(mi, src, codeinst->rettype, world, &codeinst->functionObjectsDecls, params);
-            //jl_printf(JL_STDERR, "jl_compile_linfo after emit_function\n");
-            //jl_uv_flush(JL_STDERR);
             //n_emit++;
         }
         JL_CATCH {
@@ -1254,13 +1248,9 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
         const char *specf = decls.specFunctionObject;
 
         if (JL_HOOK_TEST(params, module_activation)) {
-            //jl_printf(JL_STDERR, "other path\n");
-            //jl_uv_flush(JL_STDERR);
             JL_HOOK_CALL(params, module_activation, 1, jl_box_voidpointer(wrap(m.release())));
         }
         else {
-            //jl_printf(JL_STDERR, "get ready to mark as native\n");
-            //jl_uv_flush(JL_STDERR);
             // Step 4. Prepare debug info to receive this function
             // record that this function name came from this linfo,
             // so we can build a reverse mapping for debug-info.
@@ -1276,13 +1266,6 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
                     jl_add_code_in_flight(f, codeinst, DL);
             }
 
-            // ADDED to see if a particular function gets added to the shadow module
-            //const char *name = codeinst->functionObjectsDecls.functionObject;
-            //if (!strcmp("jfptr_analyze_method!_2181", name)){
-            //    jl_printf(JL_STDERR, "stopping jl_compile_linfo because found...\n");
-            //    jl_uv_flush(JL_STDERR);
-            //}
-
             // Step 5. Add the result to the execution engine now
             //if (codeinst->natived != 2)
                 //jl_finalize_module(m.release(), !toplevel);
@@ -1292,33 +1275,8 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             //if (!toplevel && sharedlib && codeinst->natived != 2)
             if (sharedlib){
                 codeinst->natived = 1;
-                //jl_printf(JL_STDERR, "mark as native\n");
-                //jl_uv_flush(JL_STDERR);
             }
-
-            // ADDED to see if a particular function gets added to the shadow module
-            //name = codeinst->functionObjectsDecls.functionObject;
-            //if (!strcmp("jfptr_analyze_method!_2181", name)){
-            //    jl_printf(JL_STDERR, "...stopping jl_compile_linfo because found\n");
-            //    jl_uv_flush(JL_STDERR);
-            //    //*((int*)0) = 0;
-            //}
-
         }
-        // ADDED
-        /*
-        const char *name = codeinst->functionObjectsDecls.functionObject;
-        if (!strcmp("jfptr_analyze_method!_2181", name)){
-            jl_printf(JL_STDERR, "stopping jl_compile_linfo because found\n");
-            jl_uv_flush(JL_STDERR);
-            *((int*)0) = 0;
-        }
-        if (false && stopnow){
-            jl_printf(JL_STDERR, "stopping jl_compile_linfo\n");
-            jl_uv_flush(JL_STDERR);
-            *((int*)0) = 0;
-        }
-        */
 
         if (// don't alter `inferred` when the code is not directly being used
             world &&
@@ -1641,8 +1599,6 @@ void *jl_get_llvmf_defn(jl_method_instance_t *mi, size_t world, bool getwrapper,
     jl_llvm_functions_t declarations;
     std::unique_ptr<Module> m;
     JL_TRY {
-        jl_printf(JL_STDERR, "jl_get_llvmf_defn\n");
-        jl_uv_flush(JL_STDERR);
         m = emit_function(mi, src, jlrettype, world, &declarations, &params);
     }
     JL_CATCH {
@@ -5691,8 +5647,6 @@ static std::unique_ptr<Module> emit_function(
         unadorned_name++;
 #endif
     funcName << unadorned_name << "_" << globalUnique++;
-    if (!strcmp(unadorned_name, "write"))
-        fprintf(stderr, "Emitting %s\n", funcName.str().c_str());
 
     // allocate Function declarations and wrapper objects
     Module *M = new Module(ctx.name, jl_LLVMContext);
@@ -7008,10 +6962,6 @@ extern "C" void jl_fptr_to_llvm(void *fptr, jl_code_instance_t *lam, int specsig
             funcName << "julia_"; // it's a specsig call
         const char* unadorned_name = jl_symbol_name(lam->def->def.method->name);
         funcName << unadorned_name << "_" << globalUnique++;
-
-        if (!strcmp(unadorned_name, "write"))
-            fprintf(stderr, "jl_fptr_to_llvm %s\n", funcName.str().c_str());
-
         Function *f = Function::Create(jl_func_sig, Function::ExternalLinkage, funcName.str());
         add_named_global(f, fptr);
         const char **fdecl;
