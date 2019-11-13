@@ -2404,9 +2404,19 @@ static jl_value_t *read_verify_mod_list(ios_t *s, arraylist_t *dependent_worlds,
 static int readstr_verify(ios_t *s, const char *str)
 {
     size_t i, len = strlen(str);
-    for (i = 0; i < len; ++i)
-        if ((char)read_uint8(s) != str[i])
+    char *str2 = (char*)malloc(len + 1);
+    for (i = 0; i < len; ++i) {
+        str2[i] = (char)read_uint8(s);
+        if (str2[i] != str[i]) {
+            for (int j = i + 1; j < len; j++) {
+                str2[j] = (char)read_uint8(s);
+                if (str2[j] == 0) break;
+            }
+            str2[len] = 0;
+            jl_printf(JL_STDERR, "%s != %s\n", str, str2);
             return 0;
+        }
+    }
     return 1;
 }
 

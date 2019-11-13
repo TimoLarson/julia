@@ -2,8 +2,8 @@
 
 Core.include(Main, "compiler/compiler.jl")
 Core.println("\n== compiler included ==\n")
+Core.include(Main, "BaseTrimmed.jl")
 #=
-Core.include(Main, "Base.jl")
 
 using .Base
 
