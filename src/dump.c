@@ -158,9 +158,6 @@ static jl_value_t *jl_bigint_type = NULL;
 static int gmp_limb_size = 0;
 static arraylist_t builtin_typenames;
 
-// ADDED FOR DEBUGGING
-int testit = 0;
-
 #define write_uint8(s, n) ios_putc((n), (s))
 #define read_uint8(s) ((uint8_t)ios_getc(s))
 #define write_int8(s, n) write_uint8(s, n)
@@ -709,14 +706,7 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
                 ios_write(s->s, jl_array_typetagdata(ar), jl_array_len(ar));
         }
         else {
-            int testit_i = 0;
             for (i = 0; i < jl_array_len(ar); i++) {
-                if (testit && testit_i < 100) {
-                    jl_printf(JL_STDERR, "type:\n");
-                    jl__(JL_STDERR, jl_array_ptr_ref(v, i));
-                    jl__(JL_STDERR, jl_typeof(jl_array_ptr_ref(v, i)));
-                    testit_i += 1;
-                }
                 jl_serialize_value(s, jl_array_ptr_ref(v, i));
             }
         }
@@ -1854,23 +1844,13 @@ static jl_value_t *jl_deserialize_value_module(jl_serializer_state *s) JL_GC_DIS
         arraylist_push(&backref_list, NULL);
     jl_sym_t *mname = (jl_sym_t*)jl_deserialize_value(s, NULL);
     // ADDED FOR DEBUGGING
-    whereis(s->s, "after name offset");
-    jl__(JL_STDERR, mname);
+    //whereis(s->s, "after name offset");
+    //jl__(JL_STDERR, mname);
     int ref_only = read_uint8(s->s);
     if (ref_only) {
         jl_value_t *m_ref;
-        if (ref_only == 1) {
-            //m_ref = jl_get_global((jl_module_t*)jl_deserialize_value(s, NULL), mname);
-            whereis(s->s, "jl_module_t*");
-            whereis(s->s, "before a");
-            jl_module_t *m = (jl_module_t*)jl_deserialize_value(s, NULL);
-            whereis(s->s, "before b");
-            whereis(s->s, "before c");
-            jl__(JL_STDERR, m);
-            jl__(JL_STDERR, jl_typeof(m));
-            whereis(s->s, "after d");
-            m_ref = jl_get_global(m, mname);
-        }
+        if (ref_only == 1)
+            m_ref = jl_get_global((jl_module_t*)jl_deserialize_value(s, NULL), mname);
         else
             m_ref = jl_array_ptr_ref(s->loaded_modules_array, read_int32(s->s));
         if (usetable)
@@ -2049,15 +2029,6 @@ static jl_value_t *jl_deserialize_value_any(jl_serializer_state *s, uint8_t tag,
         jl_module_t *m = (jl_module_t*)jl_deserialize_value(s, NULL);
         jl_sym_t *sym = (jl_sym_t*)jl_deserialize_value(s, NULL);
 
-        // ADDED FOR DEBUGGING
-        int64_t where = ios_pos(s->s);
-        jl_printf(JL_STDERR, "offset: %ld  ", where);
-        jl_printf(JL_STDERR, "module and sym: ");
-        jl__(JL_STDERR, m);
-        jl_printf(JL_STDERR, ".");
-        jl__(JL_STDERR, sym);
-        jl_printf(JL_STDERR, "\n");
-
         if (internal) {
             tn->module = m;
             tn->name = sym;
@@ -2070,14 +2041,8 @@ static jl_value_t *jl_deserialize_value_any(jl_serializer_state *s, uint8_t tag,
             ios_read(s->s, (char*)&tn->hash, sizeof(tn->hash));
         }
         else {
-            jl_printf(JL_STDERR, "global: ");
-            jl__(JL_STDERR, jl_get_global(m, sym));
-            jl_printf(JL_STDERR, "\n");
             jl_datatype_t *dt = (jl_datatype_t*)jl_unwrap_unionall(jl_get_global(m, sym));
             assert(jl_is_datatype(dt));
-            jl_printf(JL_STDERR, "dt: %p\n:", dt);
-            jl__(JL_STDERR, dt);
-            jl_printf(JL_STDERR, "\n");
             tn = dt->name;
             if (usetable)
                 backref_list.items[pos] = tn;
@@ -2416,16 +2381,9 @@ static jl_value_t *read_verify_mod_list(ios_t *s, arraylist_t *dependent_worlds,
     }
     size_t i, l = jl_array_len(mod_list);
 
-    // ADDED FOR DEBUGGING
-    jl_(mod_list);
-    jl_printf(JL_STDERR, "read_verify_mod_list: letter l = %lu\n", l);
-
     for (i = 0; ; i++) {
-        whereis(s, "reading size modname offset");
+        //whereis(s, "reading size modname offset");
         size_t len = read_int32(s);
-
-        // ADDED FOR DEBUGGING
-        jl_printf(JL_STDERR, "read_verify_mod_list: len = %lu\n", len);
 
         if (len == 0 && i == l)
             return NULL; // success
@@ -2436,32 +2394,19 @@ static jl_value_t *read_verify_mod_list(ios_t *s, arraylist_t *dependent_worlds,
         if (len == 0)
             return NULL;
         char *name = (char*)alloca(len + 1);
-        whereis(s, "reading before modname offset");
         ios_read(s, name, len);
         name[len] = '\0';
-        whereis(s, "read after modname offset");
         jl_uuid_t uuid;
         uuid.hi = read_uint64(s);
         uuid.lo = read_uint64(s);
         uint64_t build_id = read_uint64(s);
+        build_id = build_id;
         jl_sym_t *sym = jl_symbol_n(name, len);
         jl_module_t *m = (jl_module_t*)jl_array_ptr_ref(mod_list, i);
         // FIXME: Figure out how to get the build_id to match for Main and Core
         // between the C/C++ code and the incrementally loaded mysys.jl/mysys.so.
         //if (!m || !jl_is_module(m) || m->uuid.hi != uuid.hi || m->uuid.lo != uuid.lo || m->name != sym || m->build_id != build_id) {
         if (!m || !jl_is_module(m) || m->uuid.hi != uuid.hi || m->uuid.lo != uuid.lo || m->name != sym) {
-            jl_printf(JL_STDERR, "m: %p\n", m);
-            jl_printf(JL_STDERR, "jl_is_module(m): %i\n", jl_is_module(m));
-
-            jl_printf(JL_STDERR, "m->uuid.hi: %lu\n", m->uuid.hi);
-            jl_printf(JL_STDERR, "uuid.hi: %lu\n", uuid.hi);
-
-            jl_printf(JL_STDERR, "m->uuid.lo: %lu\n", m->uuid.lo);
-            jl_printf(JL_STDERR, "uuid.lo: %lu\n", uuid.lo);
-
-            jl_printf(JL_STDERR, "m->build_id: %lu\n", m->build_id);
-            jl_printf(JL_STDERR, "build_id: %lu\n", build_id);
-
             return jl_get_exceptionf(jl_errorexception_type,
                 "Invalid input in module list: expected %s.", name);
         }
@@ -2472,12 +2417,12 @@ static jl_value_t *read_verify_mod_list(ios_t *s, arraylist_t *dependent_worlds,
 
 static int readstr_verify(ios_t *s, const char *str)
 {
-    jl_printf(JL_STDERR, "readstr_verify: %s\n", str);
+    //jl_printf(JL_STDERR, "readstr_verify: %s\n", str);
     size_t i, len = strlen(str);
-    jl_printf(JL_STDERR, "%lu\n", len);
+    //jl_printf(JL_STDERR, "%lu\n", len);
     for (i = 0; i < len; ++i) {
         char c = (char)read_uint8(s);
-        jl_printf(JL_STDERR, "%c\n", c);
+        //jl_printf(JL_STDERR, "%c\n", c);
         //if ((char)read_uint8(s) != str[i])
         if (c != str[i])
             return 0;
@@ -2501,9 +2446,9 @@ JL_DLLEXPORT int jl_read_verify_header(ios_t *s)
 
 static void jl_finalize_serializer(jl_serializer_state *s)
 {
-    whereis(s->s, "writing finalization offset");
+    //whereis(s->s, "writing finalization offset");
 
-    /*ADDED*/write_int32(s->s, 12340);
+    //*ADDED*/write_int32(s->s, 12340);
 
     size_t i, l;
     // save module initialization order
@@ -2514,21 +2459,21 @@ static void jl_finalize_serializer(jl_serializer_state *s)
             assert(ptrhash_get(&backref_table, jl_array_ptr_ref(jl_module_init_order, i)) != HT_NOTFOUND);
         }
     }
-    jl_printf(JL_STDERR, "jl_module_init_order =\n");
+    //jl_printf(JL_STDERR, "jl_module_init_order =\n");
     jl_(jl_module_init_order);
-    jl_printf(JL_STDERR, "< jl_module_init_order =\n");
+    //jl_printf(JL_STDERR, "< jl_module_init_order =\n");
     jl_serialize_value(s, jl_module_init_order);
 
-    /*ADDED*/write_int32(s->s, 12341);
+    //*ADDED*/write_int32(s->s, 12341);
 
     // record list of reinitialization functions
     l = reinit_list.len;
 
-    write_int32(s->s, l);
+    //write_int32(s->s, l);
 
-    /*ADDED*/write_int32(s->s, 12342);
+    //*ADDED*/write_int32(s->s, 12342);
 
-    jl_printf(JL_STDERR, "reinit_list.len = %lu\n", l);
+    //jl_printf(JL_STDERR, "reinit_list.len = %lu\n", l);
 
     for (i = 0; i < l; i += 2) {
         write_int32(s->s, (int)((uintptr_t) reinit_list.items[i]));
@@ -2599,19 +2544,19 @@ static void jl_reinit_item(jl_value_t *v, int how, arraylist_t *tracee_list)
 
 static jl_array_t *jl_finalize_deserializer(jl_serializer_state *s, arraylist_t *tracee_list)
 {
-    whereis(s->s, "reading finalization offset");
+    //whereis(s->s, "reading finalization offset");
 
-    /*ADDED*/int flag_12340 = read_int32(s->s); jl_printf(JL_STDERR, "flag_12340 = %i\n", flag_12340);
+    //*ADDED*/int flag_12340 = read_int32(s->s); jl_printf(JL_STDERR, "flag_12340 = %i\n", flag_12340);
 
     jl_array_t *init_order = (jl_array_t*)jl_deserialize_value(s, NULL);
-    jl_printf(JL_STDERR, "init order: "); jl_(init_order); jl_printf(JL_STDERR, "end\n");
+    //jl_printf(JL_STDERR, "init order: "); jl_(init_order); jl_printf(JL_STDERR, "end\n");
 
-    /*ADDED*/int flag_12341 = read_int32(s->s); jl_printf(JL_STDERR, "flag_12341 = %i\n", flag_12341);
+    //*ADDED*/int flag_12341 = read_int32(s->s); jl_printf(JL_STDERR, "flag_12341 = %i\n", flag_12341);
 
-    /*ADDED*/int length = read_int32(s->s);
-    /*ADDED*/jl_printf(JL_STDERR, "length = %i\n", length);
+    //*ADDED*/int length = read_int32(s->s);
+    //*ADDED*/jl_printf(JL_STDERR, "length = %i\n", length);
 
-    /*ADDED*/int flag_12342 = read_int32(s->s); jl_printf(JL_STDERR, "flag_12342 = %i\n", flag_12342);
+    //*ADDED*/int flag_12342 = read_int32(s->s); jl_printf(JL_STDERR, "flag_12342 = %i\n", flag_12342);
 
     // run reinitialization functions
     int pos = read_int32(s->s);
@@ -2957,7 +2902,7 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
     //whereis(&f, "write mod list offset");
     //jl_printf(JL_STDERR, "\nmod_array = %p\n", mod_array);
     write_mod_list(&f, mod_array);
-    whereis(&f, "write after mod list offset");
+    //whereis(&f, "write after mod list offset");
 
     arraylist_new(&reinit_list, 0);
     htable_new(&edges_map, 0);
@@ -2997,7 +2942,7 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
         jl_get_ptls_states(),
         mod_array
     };
-    whereis(s.s, "serialize worklist offset");
+    //whereis(s.s, "serialize worklist offset");
     /*
     jl_(worklist);
     for (i = 0; i < jl_array_len(worklist); i++) {
@@ -3006,16 +2951,14 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
     }
     */
 
-    jl_printf(JL_STDERR, "serialize worklist\n");
-    whereis(s.s, "...");
-    testit = 0;
+    //jl_printf(JL_STDERR, "serialize worklist\n");
+    //whereis(s.s, "...");
     jl_serialize_value(&s, worklist);
-    testit = 0;
-    whereis(s.s, "serialize lambdas offset");
+    //whereis(s.s, "serialize lambdas offset");
     jl_serialize_value(&s, lambdas);
-    whereis(s.s, "serialize edges offset");
+    //whereis(s.s, "serialize edges offset");
     jl_serialize_value(&s, edges);
-    whereis(s.s, "serialize finalize offset");
+    //whereis(s.s, "serialize finalize offset");
     jl_finalize_serializer(&s);
     serializer_worklist = NULL;
 
@@ -3276,15 +3219,15 @@ void show_worlds(arraylist_t *dependent_worlds)
 // at the time this module was serialized (e.g. ignoring deletion)
 static jl_method_t *jl_lookup_method_worldset(jl_methtable_t *mt, jl_datatype_t *sig, arraylist_t *dependent_worlds)
 {
-    /* ADDED */ jl_printf(JL_STDERR, "in jl_lookup_method_worldset; dependent_worlds:\n");
-    /* ADDED */ jl_printf(JL_STDERR, "methtable name: ");
-    /* ADDED */ jl__(JL_STDERR, mt->name);
-    /* ADDED */ jl_printf(JL_STDERR, "\n");
-    /* ADDED */ jl_uv_flush(JL_STDERR);
-    /* ADDED */ show_worlds(dependent_worlds);
+    //* ADDED */ jl_printf(JL_STDERR, "in jl_lookup_method_worldset; dependent_worlds:\n");
+    //* ADDED */ jl_printf(JL_STDERR, "methtable name: ");
+    //* ADDED */ jl__(JL_STDERR, mt->name);
+    //* ADDED */ jl_printf(JL_STDERR, "\n");
+    //* ADDED */ jl_uv_flush(JL_STDERR);
+    //* ADDED */ show_worlds(dependent_worlds);
     size_t world = jl_world_counter;
-    /* ADDED */ jl_printf(JL_STDERR, "jl_world_counter = %lu\n", jl_world_counter);
-    /* ADDED */ jl_uv_flush(JL_STDERR);
+    //* ADDED */ jl_printf(JL_STDERR, "jl_world_counter = %lu\n", jl_world_counter);
+    //* ADDED */ jl_uv_flush(JL_STDERR);
     jl_typemap_entry_t *entry;
     jl_method_t *_new = NULL;
     while (1) {
@@ -3295,34 +3238,34 @@ static jl_method_t *jl_lookup_method_worldset(jl_methtable_t *mt, jl_datatype_t 
         if (entry == NULL)
             return _new;
 
-        /* ADDED */ jl_printf(JL_STDERR, "entry ptr: %p\n", entry);
-        /* ADDED */ jl_value_t *v = entry->func.value;
-        /* ADDED */ jl_printf(JL_STDERR, "entry->func.value ptr: %p\n", v);
-        /* ADDED */ jl_value_t *t = jl_typeof(v);
-        /* ADDED */ jl_printf(JL_STDERR, "v type ptr: %p\n", v);
-        /* ADDED */ jl_printf(JL_STDERR, "v type:\n");
-        /* ADDED */ jl__(JL_STDERR, t);
-        /* ADDED */ jl_printf(JL_STDERR, "\n");
-        /* ADDED */ jl_uv_flush(JL_STDERR);
+        //* ADDED */ jl_printf(JL_STDERR, "entry ptr: %p\n", entry);
+        //* ADDED */ jl_value_t *v = entry->func.value;
+        //* ADDED */ jl_printf(JL_STDERR, "entry->func.value ptr: %p\n", v);
+        //* ADDED */ jl_value_t *t = jl_typeof(v);
+        //* ADDED */ jl_printf(JL_STDERR, "v type ptr: %p\n", v);
+        //* ADDED */ jl_printf(JL_STDERR, "v type:\n");
+        //* ADDED */ jl__(JL_STDERR, t);
+        //* ADDED */ jl_printf(JL_STDERR, "\n");
+        //* ADDED */ jl_uv_flush(JL_STDERR);
 
-        /* ADDED */ jl_printf(JL_STDERR, "method name: ");
-        /* ADDED */ jl__(JL_STDERR, entry->func.method->name);
-        /* ADDED */ jl__(JL_STDERR, mt->name);
-        /* ADDED */ jl_printf(JL_STDERR, "\n");
-        /* ADDED */ jl_uv_flush(JL_STDERR);
+        //* ADDED */ jl_printf(JL_STDERR, "method name: ");
+        //* ADDED */ jl__(JL_STDERR, entry->func.method->name);
+        //* ADDED */ jl__(JL_STDERR, mt->name);
+        //* ADDED */ jl_printf(JL_STDERR, "\n");
+        //* ADDED */ jl_uv_flush(JL_STDERR);
 
         //jl_method_t *_new = (jl_method_t*)entry->func.value;
         _new = entry->func.method;
         world = lowerbound_dependent_world_set(_new->primary_world, dependent_worlds);
-        /* ADDED */ jl_printf(JL_STDERR, "world = %lu\n", world);
-        /* ADDED */ jl_uv_flush(JL_STDERR);
-        /* ADDED */ jl_printf(JL_STDERR, "_new->primary_world = %lu\n", _new->primary_world);
-        /* ADDED */ jl_uv_flush(JL_STDERR);
+        //* ADDED */ jl_printf(JL_STDERR, "world = %lu\n", world);
+        //* ADDED */ jl_uv_flush(JL_STDERR);
+        //* ADDED */ jl_printf(JL_STDERR, "_new->primary_world = %lu\n", _new->primary_world);
+        //* ADDED */ jl_uv_flush(JL_STDERR);
         if (world == _new->primary_world) {
             return _new;
         }
-        /* ADDED */ jl_printf(JL_STDERR, "wrap\n\n");
-        /* ADDED */ jl_uv_flush(JL_STDERR);
+        //* ADDED */ jl_printf(JL_STDERR, "wrap\n\n");
+        //* ADDED */ jl_uv_flush(JL_STDERR);
     }
 }
 
@@ -3358,21 +3301,21 @@ static jl_method_instance_t *jl_recache_method_instance(jl_method_instance_t *mi
 
 static void jl_recache_other(arraylist_t *dependent_worlds)
 {
-    /* ADDED */ sleep(1);
-    /* ADDED */ printf("0 flagref_list.len: %lu\n", flagref_list.len);
-    /* ADDED */ jl_printf(JL_STDERR, "ABCDEF\n");
-    /* ADDED */ show_worlds(dependent_worlds);
-    /* ADDED */ jl_printf(JL_STDERR, "\n");
-    /* ADDED */ jl_printf(JL_STDERR, "flagref_list.len: %lu\n", flagref_list.len);
-    /* ADDED */ jl_uv_flush(JL_STDERR);
-    /* ADDED */ printf("1 flagref_list.len: %lu\n", flagref_list.len);
-    /* ADDED */ printf("2 flagref_list.len: %lu\n", flagref_list.len);
-    /* ADDED */ printf("3 flagref_list.len: %lu\n", flagref_list.len);
-    /* ADDED */ printf("4 flagref_list.len: %lu\n", flagref_list.len);
-    /* ADDED */ printf("5 flagref_list.len: %lu\n", flagref_list.len);
-    /* ADDED */ printf("6 flagref_list.len: %lu\n", flagref_list.len);
-    /* ADDED */ printf("7 flagref_list.len: %lu\n", flagref_list.len);
-    /* ADDED */ sleep(1);
+    //* ADDED */ sleep(1);
+    //* ADDED */ printf("0 flagref_list.len: %lu\n", flagref_list.len);
+    //* ADDED */ jl_printf(JL_STDERR, "ABCDEF\n");
+    //* ADDED */ show_worlds(dependent_worlds);
+    //* ADDED */ jl_printf(JL_STDERR, "\n");
+    //* ADDED */ jl_printf(JL_STDERR, "flagref_list.len: %lu\n", flagref_list.len);
+    //* ADDED */ jl_uv_flush(JL_STDERR);
+    //* ADDED */ printf("1 flagref_list.len: %lu\n", flagref_list.len);
+    //* ADDED */ printf("2 flagref_list.len: %lu\n", flagref_list.len);
+    //* ADDED */ printf("3 flagref_list.len: %lu\n", flagref_list.len);
+    //* ADDED */ printf("4 flagref_list.len: %lu\n", flagref_list.len);
+    //* ADDED */ printf("5 flagref_list.len: %lu\n", flagref_list.len);
+    //* ADDED */ printf("6 flagref_list.len: %lu\n", flagref_list.len);
+    //* ADDED */ printf("7 flagref_list.len: %lu\n", flagref_list.len);
+    //* ADDED */ sleep(1);
 
     size_t i = 0;
     while (i < flagref_list.len) {
@@ -3443,20 +3386,20 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
 {
     /* ADDED */ jl_printf(JL_STDERR, "_jl_restore_incremental libpath: %s\n", libpath);
     JL_TIMING(LOAD_MODULE);
-    whereis(f, "read header offset");
+    //whereis(f, "read header offset");
     jl_ptls_t ptls = jl_get_ptls_states();
     if (ios_eof(f) || !jl_read_verify_header(f)) {
         ios_close(f);
         return jl_get_exceptionf(jl_errorexception_type,
                 "Precompile file header verification checks failed.");
     }
-    whereis(f, "read modlist/worklist offset");
+    //whereis(f, "read modlist/worklist offset");
     { // skip past the mod list
         size_t len;
         while ((len = read_int32(f)))
             ios_skip(f, len + 3 * sizeof(uint64_t));
     }
-    whereis(f, "read dependency list offset");
+    //whereis(f, "read dependency list offset");
     { // skip past the dependency list
         size_t deplen = read_uint64(f);
         ios_skip(f, deplen);
@@ -3473,7 +3416,7 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
 
     // verify that the system state is valid
     //if (!jl_options.topbase) {
-    whereis(f, "read mod list offset");
+    //whereis(f, "read mod list offset");
     jl_value_t *verify_fail = read_verify_mod_list(f, &dependent_worlds, mod_array);
     if (verify_fail) {
         arraylist_free(&dependent_worlds);
@@ -3482,8 +3425,8 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
     }
     //}
 
-    whereis(f, "read after mod list offset");
-    jl_printf(JL_STDERR, "success\n");
+    //whereis(f, "read after mod list offset");
+    //jl_printf(JL_STDERR, "success\n");
 
     // prepare to deserialize
     int en = jl_gc_enable(0);
@@ -3505,10 +3448,10 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, cons
         ptls,
         mod_array
     };
-    whereis(f, "before jl_deserialize_value offset");
+    //whereis(f, "before jl_deserialize_value offset");
     jl_array_t *restored = (jl_array_t*)jl_deserialize_value(&s, (jl_value_t**)&restored);
     serializer_worklist = restored;
-    whereis(f, "after jl_deserialize_value offset");
+    //whereis(f, "after jl_deserialize_value offset");
     // get list of external generic functions
     jl_value_t *external_methods = jl_deserialize_value(&s, &external_methods);
     jl_value_t *external_backedges = jl_deserialize_value(&s, &external_backedges);

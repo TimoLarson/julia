@@ -1232,11 +1232,11 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
         // Step 3. actually do the work of emitting the function
         std::unique_ptr<Module> m;
         JL_TRY {
-            jl_printf(JL_STDERR, "jl_compile_linfo before emit_function\n");
-            jl_uv_flush(JL_STDERR);
+            //jl_printf(JL_STDERR, "jl_compile_linfo before emit_function\n");
+            //jl_uv_flush(JL_STDERR);
             m = emit_function(mi, src, codeinst->rettype, world, &codeinst->functionObjectsDecls, params);
-            jl_printf(JL_STDERR, "jl_compile_linfo after emit_function\n");
-            jl_uv_flush(JL_STDERR);
+            //jl_printf(JL_STDERR, "jl_compile_linfo after emit_function\n");
+            //jl_uv_flush(JL_STDERR);
             //n_emit++;
         }
         JL_CATCH {
@@ -1254,13 +1254,13 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
         const char *specf = decls.specFunctionObject;
 
         if (JL_HOOK_TEST(params, module_activation)) {
-            jl_printf(JL_STDERR, "other path\n");
-            jl_uv_flush(JL_STDERR);
+            //jl_printf(JL_STDERR, "other path\n");
+            //jl_uv_flush(JL_STDERR);
             JL_HOOK_CALL(params, module_activation, 1, jl_box_voidpointer(wrap(m.release())));
         }
         else {
-            jl_printf(JL_STDERR, "get ready to mark as native\n");
-            jl_uv_flush(JL_STDERR);
+            //jl_printf(JL_STDERR, "get ready to mark as native\n");
+            //jl_uv_flush(JL_STDERR);
             // Step 4. Prepare debug info to receive this function
             // record that this function name came from this linfo,
             // so we can build a reverse mapping for debug-info.
@@ -1277,11 +1277,11 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             }
 
             // ADDED to see if a particular function gets added to the shadow module
-            const char *name = codeinst->functionObjectsDecls.functionObject;
-            if (!strcmp("jfptr_analyze_method!_2181", name)){
-                jl_printf(JL_STDERR, "stopping jl_compile_linfo because found...\n");
-                jl_uv_flush(JL_STDERR);
-            }
+            //const char *name = codeinst->functionObjectsDecls.functionObject;
+            //if (!strcmp("jfptr_analyze_method!_2181", name)){
+            //    jl_printf(JL_STDERR, "stopping jl_compile_linfo because found...\n");
+            //    jl_uv_flush(JL_STDERR);
+            //}
 
             // Step 5. Add the result to the execution engine now
             //if (codeinst->natived != 2)
@@ -1292,17 +1292,17 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             //if (!toplevel && sharedlib && codeinst->natived != 2)
             if (sharedlib){
                 codeinst->natived = 1;
-                jl_printf(JL_STDERR, "mark as native\n");
-                jl_uv_flush(JL_STDERR);
+                //jl_printf(JL_STDERR, "mark as native\n");
+                //jl_uv_flush(JL_STDERR);
             }
 
             // ADDED to see if a particular function gets added to the shadow module
-            name = codeinst->functionObjectsDecls.functionObject;
-            if (!strcmp("jfptr_analyze_method!_2181", name)){
-                jl_printf(JL_STDERR, "...stopping jl_compile_linfo because found\n");
-                jl_uv_flush(JL_STDERR);
-                //*((int*)0) = 0;
-            }
+            //name = codeinst->functionObjectsDecls.functionObject;
+            //if (!strcmp("jfptr_analyze_method!_2181", name)){
+            //    jl_printf(JL_STDERR, "...stopping jl_compile_linfo because found\n");
+            //    jl_uv_flush(JL_STDERR);
+            //    //*((int*)0) = 0;
+            //}
 
         }
         // ADDED

@@ -77,7 +77,7 @@ $(build_private_libdir)/compiler_and_base.ji: $(COMPILER_SRCS)
 
 # ADDED FOR LIBRARIES
 $(build_private_libdir)/compiler_and_base.so: $(build_private_libdir)/compiler_and_base.ji.bc
-	$(build_private_libdir)/../../../usr/tools/clang -shared -fpic $(build_private_libdir)/mysys.ji.bc -o $(build_private_libdir)/compiler_and_base.so
+	$(build_private_libdir)/../../../usr/tools/clang -shared -fpic $(build_private_libdir)/compiler_and_base.ji.bc -o $(build_private_libdir)/compiler_and_base.so
 
 ## ADDED FOR LIBRARIES
 #$(build_private_libdir)/mysys.ji: $(build_private_libdir)/corecompiler.ji $(JULIAHOME)/VERSION $(BASE_SRCS) $(STDLIB_SRCS)

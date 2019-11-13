@@ -971,7 +971,7 @@ void jl_add_to_shadow(Module *m)
         }
     }
     jl_merge_module(shadow_output, std::move(clone));
-    /* ADDED */ jl_safe_printf("merged\n");
+    //* ADDED */ jl_safe_printf("merged\n");
 }
 
 static void emit_offset_table(Module *mod, const std::vector<GlobalValue*> &vars, StringRef name)
