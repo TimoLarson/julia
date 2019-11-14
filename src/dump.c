@@ -366,6 +366,14 @@ static void jl_serialize_datatype(jl_serializer_state *s, jl_datatype_t *dt) JL_
     write_uint8(s->s, tag);
     if (tag == 6 || tag == 7) {
         // for tag==6, copy its typevars in case there are references to them elsewhere
+
+        // ADDED FOR DEBUGGING
+        char *nm = jl_symbol_name(dt->name->name);
+        if (strlen(nm) == 0) {
+            jl_printf(JL_STDERR, "datatype name is null\n");
+            *(int*)0 = 0;
+        }
+
         jl_serialize_value(s, dt->name);
         jl_serialize_value(s, dt->parameters);
         return;
@@ -2065,6 +2073,8 @@ static jl_value_t *jl_deserialize_value(jl_serializer_state *s, jl_value_t **loc
     size_t i, n;
     uintptr_t pos;
     uint8_t tag = read_uint8(s->s);
+    whereis(s->s, "TAG");
+    jl_printf(JL_STDERR, "tag = %u\n", tag);
     if (tag > LAST_TAG)
         return deser_tag[tag];
     int usetable = (s->mode != MODE_IR);
@@ -3241,20 +3251,20 @@ static void jl_link_shared_lib(const char *libpath)
     size_t i = 0;
     while (i < natived_list.len) {
         jl_code_instance_t *codeinst = (jl_code_instance_t*)natived_list.items[i];
-        jl_method_instance_t *mi = codeinst->def;
-        jl_method_t *meth = mi->def.method;
-        jl_module_t *module = meth->module;
+        //jl_method_instance_t *mi = codeinst->def;
+        //jl_method_t *meth = mi->def.method;
+        //jl_module_t *module = meth->module;
 
-        if (!module->libhandle)
-            module->libhandle = jl_dlopen(libpath, JL_RTLD_GLOBAL | JL_RTLD_DEEPBIND);
-        void *lib = module->libhandle;
+        //if (!module->libhandle)
+        //    module->libhandle = jl_dlopen(libpath, JL_RTLD_GLOBAL | JL_RTLD_DEEPBIND);
+        //void *lib = module->libhandle;
+        void *lib = jl_dlopen(libpath, JL_RTLD_GLOBAL | JL_RTLD_DEEPBIND);
         int found = jl_dlsym(lib, codeinst->functionObjectsDecls.functionObject, (void**)&(codeinst->invoke), 0);
         if (!found){
             void *libjulia = jl_dlopen(NULL, JL_RTLD_GLOBAL | JL_RTLD_DEEPBIND);
             found = jl_dlsym(libjulia, codeinst->functionObjectsDecls.functionObject, (void**)&(codeinst->invoke), 0);
             if (!found){
                 jl_printf(JL_STDERR, "Symbol not found: %s\n", codeinst->functionObjectsDecls.functionObject);
-                exit(1);
             }
         }
         jl_dlsym(lib, codeinst->functionObjectsDecls.specFunctionObject, (void**)&(codeinst->specptr), 0);
@@ -3263,7 +3273,6 @@ static void jl_link_shared_lib(const char *libpath)
             jl_dlsym(libjulia, codeinst->functionObjectsDecls.specFunctionObject, (void**)&(codeinst->specptr), 0);
             if (!found){
                 jl_printf(JL_STDERR, "Symbol not found: %s\n", codeinst->functionObjectsDecls.specFunctionObject);
-                exit(1);
             }
         }
         i += 1;

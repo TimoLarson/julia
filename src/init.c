@@ -774,12 +774,19 @@ void _julia_init(JL_IMAGE_SEARCH rel)
         jl_init_intrinsic_functions();
         jl_init_primitives();
         jl_init_main_module();
+        fprintf(stderr, "called jl_init_main_module()\n");
 
+        //jl_load(jl_core_module, "boot.jl");
         jl_load(jl_core_module, "/home/query/pkg/git/julia-precompile-native-dev2/base/boot.jl");
+
+        fprintf(stderr, "calling post_boot_hooks()\n");
+        post_boot_hooks();
+        fprintf(stderr, "called post_boot_hooks()\n");
 
         char* compilerpath = "/home/query/pkg/git/julia-precompile-native-dev2-build/usr/lib/julia/compiler_and_base.ji";
         struct stat buffer;
         if (stat (compilerpath, &buffer) == 0) {
+            fprintf(stderr, "loading compiler_and_base.ji\n");
             size_t count = 0;
             jl_array_t *mod_list = jl_alloc_array_1d((jl_value_t*)jl_array_any_type, count);
             fprintf(stderr, "jl_core_module: %p\n", jl_core_module);
@@ -794,9 +801,11 @@ void _julia_init(JL_IMAGE_SEARCH rel)
             *mod = &jl_core_module;
             */
             jl_restore_incremental(compilerpath, mod_list);
-        }
-
-        post_boot_hooks();
+        }//else{
+        //    fprintf(stderr, "loading boot.ji\n");
+        //    jl_load(jl_core_module, "/home/query/pkg/git/julia-precompile-native-dev2/base/boot.jl");
+        //    fprintf(stderr, "loaded boot.ji\n");
+        //}
     }
 
     // the Main module is the one which is always open, and set as the

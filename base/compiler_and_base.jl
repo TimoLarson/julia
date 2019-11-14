@@ -1,9 +1,9 @@
 # This file is a part of Julia. License is MIT: https://julialang.org/license
 
+#Core.include(Core, "boot.jl")
 Core.include(Main, "compiler/compiler.jl")
 Core.println("\n== compiler included ==\n")
 Core.include(Main, "BaseTrimmed.jl")
-#=
 
 using .Base
 
@@ -27,6 +27,7 @@ Core.println("\n== Base: ", Base, " ==\n")
 #Core.println("\n== is_primary_base_module: ", is_primary_base_module, " ==\n")
 Core.println("\n== Base.is_primary_base_module: ", Base.is_primary_base_module, " ==\n")
 
+#=
 # ADDED FOR DEBUGGING
 #=
 

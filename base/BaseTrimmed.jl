@@ -35,16 +35,8 @@ setproperty!(x, f::Symbol, v) = setfield!(x, f, convert(fieldtype(typeof(x), f),
 
 include("coreio.jl")
 
-# ADDED
-Core.println("\n== is_primary_base_module initialized ==\n")
-#=
-Core.println("\n== Base: ", Base, " ==\n")
-Core.println("\n== is_primary_base_module: ", is_primary_base_module, " ==\n")
-
 eval(x) = Core.eval(Base, x)
 eval(m::Module, x) = Core.eval(m, x)
-
-Core.println("\n== 1 ==\n")
 
 # init core docsystem
 import Core: @doc, @__doc__, WrappedException, @int128_str, @uint128_str, @big_str, @cmd
@@ -295,6 +287,7 @@ function deepcopy_internal end
 include("Enums.jl")
 using .Enums
 
+# =
 # BigInts
 include("gmp.jl")
 using .GMP
@@ -306,9 +299,11 @@ using .Ryu
 # BigFloats
 include("mpfr.jl")
 using .MPFR
+# = #
 
 include("combinatorics.jl")
 
+# =
 # more hashing definitions
 include("hashing2.jl")
 
@@ -316,6 +311,7 @@ include("hashing2.jl")
 include("irrationals.jl")
 include("mathconstants.jl")
 using .MathConstants: ℯ, π, pi
+# = #
 
 # metaprogramming
 include("meta.jl")
@@ -342,9 +338,6 @@ include("threadcall.jl")
 include("uuid.jl")
 include("loading.jl")
 
-# ADDED FOR DEBUGGING
-if false
-
 # misc useful functions & macros
 include("util.jl")
 
@@ -353,8 +346,10 @@ include("asyncmap.jl")
 # experimental API's
 include("experimental.jl")
 
+# =
 # deprecated functions
 include("deprecated.jl")
+# = #
 
 # Some basic documentation
 include("docs/basedocs.jl")
@@ -396,28 +391,10 @@ function include(mod::Module, _path::String)
     return result
 end
 
-end # if false
-
-Core.println("\n== 2 ==\n")
-
-#end_base_include = time_ns()
-
-Core.println("\n== 3 ==\n")
+end_base_include = time_ns()
 
 if is_primary_base_module
-Core.println("\n== 4 ==\n")
 function __init__()
-
-    # ADDED
-    Core.println("\n== in Base.__init__() ==\n")
-    is_primary_base_module = ccall(:jl_module_parent, Ref{Module}, (Any,), Base) === Core.Main
-    ccall(:jl_set_istopmod, Cvoid, (Any, Bool), Base, is_primary_base_module)
-    Core.println("\n== re-initialized: is_primary_base_module ==\n")
-    Core.println("\n== Base: ", Base, " ==\n")
-    Core.println("\n== is_primary_base_module: ", is_primary_base_module, " ==\n")
-
-    if false
-
     # try to ensuremake sure OpenBLAS does not set CPU affinity (#1070, #9639)
     if !haskey(ENV, "OPENBLAS_MAIN_FREE") && !haskey(ENV, "GOTOBLAS_MAIN_FREE")
         ENV["OPENBLAS_MAIN_FREE"] = "1"
@@ -431,38 +408,20 @@ function __init__()
             ENV["OPENBLAS_NUM_THREADS"] = cpu_threads
         end # otherwise, trust that openblas will pick CPU_THREADS anyways, without any intervention
     end
-
-end # if false
-Core.println("\n== 5 ==\n")
-
     # for the few uses of Libc.rand in Base:
     Libc.srand()
-Core.println("\n== 6 ==\n")
     # Base library init
     reinit_stdio()
-Core.println("\n== 7 ==\n")
-
-    if false
-
     Multimedia.reinit_displays() # since Multimedia.displays uses stdout as fallback
-
-end # if false
-
     # initialize loading
     init_depot_path()
     init_load_path()
-Core.println("\n== 8 ==\n")
     nothing
 end
 
-Core.println("\n== 9 ==\n")
 
 end
 
-Core.println("\n== 10 ==\n")
+const tot_time_stdlib = RefValue(0.0)
 
-#const tot_time_stdlib = RefValue(0.0)
-
-Core.println("\n== 11 ==\n")
-=#
 end # baremodule Base
