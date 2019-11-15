@@ -84,7 +84,12 @@ endif
 SRCS += $(RUNTIME_SRCS)
 
 # ADDED FOR LIBRARIES
-$(BUILDDIR)/version_git.h.phony: $(SRCDIR)/version_git.sh
+$(BUILDDIR)/version_git.h: $(BUILDDIR)/version_git.h.phony
+
+FORCE:
+
+#$(BUILDDIR)/version_git.h.phony: $(SRCDIR)/version_git.sh
+$(BUILDDIR)/version_git.h.phony: $(SRCDIR)/version_git.sh FORCE
 ifneq ($(NO_GIT), 1)
 	sh $< $(SRCDIR) > $@
 	@# This to avoid touching git_version.h when it is not modified,
