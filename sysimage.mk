@@ -76,7 +76,7 @@ $(build_private_libdir)/compiler_and_base.ji: $(COMPILER_SRCS)
 	@mv $@.tmp $@
 
 # ADDED FOR LIBRARIES
-$(build_private_libdir)/compiler_and_base.so: $(build_private_libdir)/compiler_and_base.ji.bc
+$(build_private_libdir)/compiler_and_base.so: $(build_private_libdir)/compiler_and_base.ji $(build_private_libdir)/compiler_and_base.ji.bc
 	$(build_private_libdir)/../../../usr/tools/clang -shared -fpic $(build_private_libdir)/compiler_and_base.ji.bc -o $(build_private_libdir)/compiler_and_base.so
 
 ## ADDED FOR LIBRARIES

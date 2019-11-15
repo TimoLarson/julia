@@ -490,3 +490,4 @@ function _start()
         print(color_normal)
     end
 end
+precompile(_start, ())

@@ -777,13 +777,13 @@ void _julia_init(JL_IMAGE_SEARCH rel)
         fprintf(stderr, "called jl_init_main_module()\n");
 
         //jl_load(jl_core_module, "boot.jl");
-        jl_load(jl_core_module, "/home/tim/pkg/git/julia-precompile-native-dev2/base/boot.jl");
+        jl_load(jl_core_module, "/home/query/pkg/git/julia-precompile-native-dev2/base/boot.jl");
 
         fprintf(stderr, "calling post_boot_hooks()\n");
         post_boot_hooks();
         fprintf(stderr, "called post_boot_hooks()\n");
 
-        char* compilerpath = "/home/tim/pkg/git/julia-precompile-native-dev2-build/usr/lib/julia/compiler_and_base.ji";
+        char* compilerpath = "/home/query/pkg/git/julia-precompile-native-dev2-build/usr/lib/julia/compiler_and_base.ji";
         struct stat buffer;
         if (stat (compilerpath, &buffer) == 0) {
             fprintf(stderr, "loading compiler_and_base.ji\n");
@@ -801,6 +801,10 @@ void _julia_init(JL_IMAGE_SEARCH rel)
             *mod = &jl_core_module;
             */
             jl_restore_incremental(compilerpath, mod_list);
+            fprintf(stderr, "after jl_restore_incremental\n");
+            fprintf(stderr, "jl_base_module: %p\n", jl_base_module);
+            *(int*)0 = 0;
+
         }//else{
         //    fprintf(stderr, "loading boot.ji\n");
         //    jl_load(jl_core_module, "/home/query/pkg/git/julia-precompile-native-dev2/base/boot.jl");

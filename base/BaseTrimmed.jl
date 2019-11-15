@@ -287,12 +287,11 @@ function deepcopy_internal end
 include("Enums.jl")
 using .Enums
 
-# =
+#=
 # BigInts
 include("gmp.jl")
 using .GMP
 
-#=
 # float printing: requires BigInt
 include("ryu/Ryu.jl")
 using .Ryu
@@ -352,17 +351,21 @@ include("experimental.jl")
 include("deprecated.jl")
 =#
 
+#=
 # Some basic documentation
 include("docs/basedocs.jl")
+=#
 
 include("client.jl")
 
+#=
 # Documentation -- should always be included last in sysimg.
 include("docs/Docs.jl")
 using .Docs
 if isdefined(Core, :Compiler) && is_primary_base_module
     Docs.loaddocs(Core.Compiler.CoreDocs.DOCS)
 end
+=#
 
 # finally, now make `include` point to the full version
 for m in methods(include)
