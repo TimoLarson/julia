@@ -292,6 +292,7 @@ using .Enums
 include("gmp.jl")
 using .GMP
 
+#=
 # float printing: requires BigInt
 include("ryu/Ryu.jl")
 using .Ryu
@@ -299,11 +300,11 @@ using .Ryu
 # BigFloats
 include("mpfr.jl")
 using .MPFR
-# = #
+=#
 
 include("combinatorics.jl")
 
-# =
+#=
 # more hashing definitions
 include("hashing2.jl")
 
@@ -311,7 +312,7 @@ include("hashing2.jl")
 include("irrationals.jl")
 include("mathconstants.jl")
 using .MathConstants: ℯ, π, pi
-# = #
+=#
 
 # metaprogramming
 include("meta.jl")
@@ -346,10 +347,10 @@ include("asyncmap.jl")
 # experimental API's
 include("experimental.jl")
 
-# =
+#=
 # deprecated functions
 include("deprecated.jl")
-# = #
+=#
 
 # Some basic documentation
 include("docs/basedocs.jl")
