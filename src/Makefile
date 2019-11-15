@@ -179,6 +179,12 @@ $(BUILDDIR):
 
 LLVM_CONFIG_ABSOLUTE := $(shell which $(LLVM_CONFIG))
 
+# source file rules (singled out to add a dependency on $(BUILDDIR)/version_git.h.phony)
+$(BUILDDIR)/jlapi.o: $(SRCDIR)/jlapi.c $(HEADERS) $(BUILDDIR)/version_git.h.phony | $(BUILDDIR)
+	@$(call PRINT_CC, $(CC) $(JCPPFLAGS) $(JCFLAGS) $(SHIPFLAGS) $(DISABLE_ASSERTIONS) -c $< -o $@)
+$(BUILDDIR)/jlapi.dbg.obj: $(SRCDIR)/jlapi.c $(HEADERS) $(BUILDDIR)/version_git.h.phony | $(BUILDDIR)
+	@$(call PRINT_CC, $(CC) $(JCPPFLAGS) $(JCFLAGS) $(DEBUGFLAGS) -c $< -o $@)
+
 # source file rules
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c $(HEADERS) | $(BUILDDIR)
 	@$(call PRINT_CC, $(CC) $(JCPPFLAGS) $(JCFLAGS) $(SHIPFLAGS) $(DISABLE_ASSERTIONS) -c $< -o $@)
