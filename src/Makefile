@@ -86,6 +86,7 @@ SRCS += $(RUNTIME_SRCS)
 # ADDED FOR LIBRARIES
 $(BUILDDIR)/version_git.h: $(BUILDDIR)/version_git.h.phony
 
+#1
 FORCE:
 
 #$(BUILDDIR)/version_git.h.phony: $(SRCDIR)/version_git.sh
