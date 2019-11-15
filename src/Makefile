@@ -86,20 +86,19 @@ SRCS += $(RUNTIME_SRCS)
 # ADDED FOR LIBRARIES
 $(BUILDDIR)/version_git.h: $(BUILDDIR)/version_git.h.phony
 
-#1
 FORCE:
 
 #$(BUILDDIR)/version_git.h.phony: $(SRCDIR)/version_git.sh
-$(BUILDDIR)/version_git.h.phony: $(SRCDIR)/version_git.sh FORCE
+$(BUILDDIR)/version_git.h: $(SRCDIR)/version_git.sh FORCE
 ifneq ($(NO_GIT), 1)
-	sh $< $(SRCDIR) > $@
+	sh $< $(SRCDIR) > $@.phony
 	@# This to avoid touching git_version.h when it is not modified,
 	@# so that the system image does not need to be rebuilt.
-	@if ! cmp -s $@ version_git.h; then \
+	@if ! cmp -s $@.phony version_git.h; then \
 		$(call PRINT_PERL,) \
-		mv $@ version_git.h; \
+		mv $@.phony version_git.h; \
 	else \
-		rm -f $@; \
+		rm -f $@.phony; \
 	fi
 else
 ifeq ($(shell [ -f $(BUILDDIR)/version_git.h ] && echo "true"), true)
