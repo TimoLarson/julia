@@ -1916,6 +1916,8 @@ static jl_value_t *jl_deserialize_value_module(jl_serializer_state *s) JL_GC_DIS
     if (usetable)
         arraylist_push(&backref_list, NULL);
     jl_sym_t *mname = (jl_sym_t*)jl_deserialize_value(s, NULL);
+    jl_printf(JL_STDERR, "MoDuLe: %s\n", jl_symbol_name(mname));
+    jl_uv_flush(JL_STDERR);
     int ref_only = read_uint8(s->s);
     if (ref_only) {
         jl_value_t *m_ref;
@@ -1933,7 +1935,6 @@ static jl_value_t *jl_deserialize_value_module(jl_serializer_state *s) JL_GC_DIS
     m->parent = (jl_module_t*)jl_deserialize_value(s, (jl_value_t**)&m->parent);
     jl_gc_wb(m, m->parent);
 
-    jl_printf(JL_STDERR, "MoDuLe: %s\n", jl_symbol_name(mname));
     jl_printf(JL_STDERR, "MoDuLe ptr: %p %p\n", mname, jl_symbol("Base"));
     jl_uv_flush(JL_STDERR);
     if (mname == jl_symbol("Base")) {

@@ -57,8 +57,8 @@ compiler_and_base-so:
 
 julia-git:
 	# Save git information
-	-@$(MAKE) -C $(BUILDROOT)/base version_git.jl.phony
-	-@$(MAKE) -C $(JULIAHOME)/src version_git.h.phony
+	-@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT)/base version_git.jl.phony
+	-@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT)/src version_git.h.phony
 
 julia-copystdlib:
 	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT)/stdlib
