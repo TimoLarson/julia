@@ -1951,7 +1951,15 @@ static jl_value_t *jl_deserialize_value_module(jl_serializer_state *s) JL_GC_DIS
     while (1) {
         jl_sym_t *name = (jl_sym_t*)jl_deserialize_value(s, NULL);
         if (name == NULL)
+        /**/{
+            /**/jl_printf(JL_STDERR, "...done %s\n", jl_symbol_name(mname));
+            /**/jl_uv_flush(JL_STDERR);
             break;
+        /**/}
+        /**/if (name == jl_symbol("println")){
+            /**/jl_printf(JL_STDERR, "...%s %s\n", jl_symbol_name(mname), jl_symbol_name(name));
+            /**/jl_uv_flush(JL_STDERR);
+        /**/}
         jl_binding_t *b = jl_get_binding_wr(m, name, 1);
         b->value = jl_deserialize_value(s, &b->value);
         jl_gc_wb_buf(m, b, sizeof(jl_binding_t));
@@ -2350,6 +2358,10 @@ static jl_value_t *jl_deserialize_value(jl_serializer_state *s, jl_value_t **loc
     case TAG_CORE:
         return (jl_value_t*)jl_core_module;
     case TAG_BASE:
+        if (!jl_base_module){
+            jl_base_module = jl_new_module(jl_symbol("Base"));
+            jl_base_module->parent = jl_main_module;
+        }
         return (jl_value_t*)jl_base_module;
     case TAG_VECTORTY:
         v = jl_deserialize_value(s, NULL);
@@ -3013,7 +3025,10 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
     for (i = 0; i < len; i++) {
         jl_module_t *m = (jl_module_t*)jl_array_ptr_ref(mod_array, i);
         assert(jl_is_module(m));
-        if (m->parent == m) // some toplevel modules (really just Base) aren't actually
+        //if (m->name == jl_symbol("Base")){
+        //    *(int*)0 = 0;
+        //}
+        if (m->parent == m || (m->name == jl_symbol("Base") && m->parent == jl_main_module)) // some toplevel modules (really just Base) aren't actually
             jl_collect_lambdas_from_mod(lambdas, m);
     }
     jl_collect_methtable_from_mod(lambdas, jl_type_type_mt);

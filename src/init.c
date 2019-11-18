@@ -803,7 +803,9 @@ void _julia_init(JL_IMAGE_SEARCH rel)
             jl_restore_incremental(compilerpath, mod_list);
             fprintf(stderr, "after jl_restore_incremental\n");
             fprintf(stderr, "jl_base_module: %p\n", jl_base_module);
-            *(int*)0 = 0;
+            fprintf(stderr, "ptr: %p\n", (jl_function_t*)jl_get_global(jl_base_module, jl_symbol("print")));
+            fprintf(stderr, "Base._start: %p\n", (jl_function_t*)jl_get_global(jl_base_module, jl_symbol("_start")));
+            //*(int*)0 = 0;
 
         }//else{
         //    fprintf(stderr, "loading boot.ji\n");
