@@ -824,6 +824,9 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
     else if (jl_is_method(v)) {
         write_uint8(s->s, TAG_METHOD);
         jl_method_t *m = (jl_method_t*)v;
+        jl_printf(JL_STDERR, "method: %s\n", jl_symbol_name(m->name));
+        jl_printf(JL_STDERR, "    module: %s\n", jl_symbol_name(m->module->name));
+        jl_uv_flush(JL_STDERR);
         int internal = 1;
         int external_mt = 0;
         internal = module_in_worklist(m->module);
@@ -1789,6 +1792,14 @@ static jl_value_t *jl_deserialize_value_method(jl_serializer_state *s, jl_value_
     m->pure = read_int8(s->s);
     m->module = (jl_module_t*)jl_deserialize_value(s, (jl_value_t**)&m->module);
     jl_gc_wb(m, m->module);
+    //jl_printf(JL_STDERR, "any method: %s\n", jl_symbol_name(m->name));
+    //if (!strcmp("Base", jl_symbol_name(m->module->name))){
+    if (strstr("time_ns", jl_symbol_name(m->name))){
+        jl_printf(JL_STDERR, "method: %s\n", jl_symbol_name(m->name));
+        jl_uv_flush(JL_STDERR);
+        jl_printf(JL_STDERR, "    module: %s\n", jl_symbol_name(m->module->name));
+        jl_uv_flush(JL_STDERR);
+    }
     m->slot_syms = jl_deserialize_value(s, (jl_value_t**)&m->slot_syms);
     jl_gc_wb(m, m->slot_syms);
     m->roots = (jl_array_t*)jl_deserialize_value(s, (jl_value_t**)&m->roots);
