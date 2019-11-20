@@ -393,9 +393,13 @@ static const char *git_info_string(const char *fld)
 
         GIT_VERSION_INFO = jl_get_global(jl_base_module, jl_symbol("GIT_VERSION_INFO"));
     }
-    jl_value_t *f = jl_get_field(GIT_VERSION_INFO, fld);
-    assert(jl_is_string(f));
-    return jl_string_data(f);
+    if (GIT_VERSION_INFO) {
+        jl_value_t *f = jl_get_field(GIT_VERSION_INFO, fld);
+        assert(jl_is_string(f));
+        return jl_string_data(f);
+    } else {
+        return "git version not available";
+    }
 }
 
 JL_DLLEXPORT const char *jl_git_branch(void)
