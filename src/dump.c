@@ -563,10 +563,12 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
         write_uint8(s->s, TAG_CORE);
         return;
     }
+    /*
     else if (v == (jl_value_t*)jl_base_module) {
         write_uint8(s->s, TAG_BASE);
         return;
     }
+    */
 
     if (s->mode == MODE_IR) {
         if (v == (jl_value_t*)s->method->module) {
@@ -1918,10 +1920,10 @@ static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl
 
 static jl_value_t *jl_deserialize_value_module(jl_serializer_state *s) JL_GC_DISABLED
 {
-#ifdef __VERBOSE_DES__
+//#ifdef __VERBOSE_DES__
     jl_printf(JL_STDERR, "d: module\n");
     jl_uv_flush(JL_STDERR);
-#endif
+//#endif
     int usetable = (s->mode != MODE_IR);
     uintptr_t pos = backref_list.len;
     if (usetable)
@@ -3039,8 +3041,11 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
         //if (m->name == jl_symbol("Base")){
         //    *(int*)0 = 0;
         //}
-        if (m->parent == m || (m->name == jl_symbol("Base") && m->parent == jl_main_module)) // some toplevel modules (really just Base) aren't actually
+        if (m->parent == m || (m->name == jl_symbol("Base") && m->parent == jl_main_module)) { // some toplevel modules (really just Base) aren't actually
+            jl_printf(JL_STDERR, "jl_collect_lambdas_from_mod: %s\n", jl_symbol_name(m->name));
+            jl_uv_flush(JL_STDERR);
             jl_collect_lambdas_from_mod(lambdas, m);
+        }
     }
     jl_collect_methtable_from_mod(lambdas, jl_type_type_mt);
     jl_collect_missing_backedges_to_mod(jl_type_type_mt);

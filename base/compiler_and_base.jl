@@ -1,17 +1,5 @@
 # This file is a part of Julia. License is MIT: https://julialang.org/license
 
-baremodule Base
-
-function funa()
-    "strA"
-end
-
-struct IdDict
-end
-
-end
-
-#=
 #Core.include(Core, "boot.jl")
 Core.include(Main, "compiler/compiler.jl")
 Core.println("\n== compiler included ==\n")
@@ -139,5 +127,4 @@ end
 
 empty!(LOAD_PATH)
 empty!(DEPOT_PATH)
-=#
 =#
