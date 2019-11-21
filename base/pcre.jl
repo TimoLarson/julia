@@ -152,6 +152,23 @@ function err_message(errno)
 end
 
 function exec(re, subject, offset, options, match_data)
+    # ADDED {
+    println("re:")
+    println(typeof(re))
+    println(re)
+    println("subject:")
+    println(subject)
+    println("sizeof(subject):")
+    println(sizeof(subject))
+    println("offset:")
+    println(offset)
+    println("options:")
+    println(options)
+    println("match_data:")
+    println(match_data)
+    println("get_local_match_context():")
+    println(get_local_match_context())
+    # } ADDED
     rc = ccall((:pcre2_match_8, PCRE_LIB), Cint,
                (Ptr{Cvoid}, Ptr{UInt8}, Csize_t, Csize_t, Cuint, Ptr{Cvoid}, Ptr{Cvoid}),
                re, subject, sizeof(subject), offset, options, match_data, get_local_match_context())

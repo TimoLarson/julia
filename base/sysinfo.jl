@@ -48,7 +48,9 @@ A string containing the full path to the directory containing the `julia` execut
 
 A string containing the full path to the directory containing the `stdlib` packages.
 """
-STDLIB = "$BINDIR/../share/julia/stdlib/v$(VERSION.major).$(VERSION.minor)" # for bootstrap
+# FIDDLED FOR DEBUGGING
+#STDLIB = "$BINDIR/../share/julia/stdlib/v$(VERSION.major).$(VERSION.minor)" # for bootstrap
+STDLIB = "$BINDIR/../share/julia/stdlib/v1.4" # for bootstrap
 # In case STDLIB change after julia is built, the variable below can be used
 # to update cached method locations to updated ones.
 const BUILD_STDLIB_PATH = STDLIB
@@ -115,7 +117,9 @@ function __init__()
     global CPU_NAME = ccall(:jl_get_cpu_name, Ref{String}, ())
     global JIT = ccall(:jl_get_JIT, Ref{String}, ())
     global BINDIR = ccall(:jl_get_julia_bindir, Any, ())::String
-    vers = "v$(VERSION.major).$(VERSION.minor)"
+    # FIDDLED FOR DEBUGGING
+    #vers = "v$(VERSION.major).$(VERSION.minor)"
+    vers = "v1.4"
     global STDLIB = abspath(BINDIR, "..", "share", "julia", "stdlib", vers)
     nothing
 end
@@ -421,7 +425,9 @@ if iswindows()
         VersionNumber(verinfo & 0xFF, (verinfo >> 8) & 0xFF, verinfo >> 16)
     end
 else
-    windows_version() = v"0.0"
+    # Changed for debugging to let sysinfo get defined before version
+    #windows_version() = v"0.0"
+    windows_version() = "0.0"
 end
 
 """
@@ -432,7 +438,7 @@ i.e. `v"major.minor.build"`, or `v"0.0.0"` if this is not running on Windows.
 """
 windows_version
 
-const WINDOWS_VISTA_VER = v"6.0"
+#const WINDOWS_VISTA_VER = v"6.0"
 
 """
     Sys.isexecutable(path::String)

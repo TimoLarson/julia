@@ -128,7 +128,11 @@ JL_DLLEXPORT void JL_NORETURN jl_type_error(const char *fname, jl_value_t *expec
 JL_DLLEXPORT void JL_NORETURN jl_undefined_var_error(jl_sym_t *var)
 {
     // ADDED FOR DEBUGGING
+    jl_printf(JL_STDERR, "Undefined var:\n");
     jl__(JL_STDERR, var);
+    jl_printf(JL_STDERR, "\n");
+    jl_uv_flush(JL_STDERR);
+
     jl_throw(jl_new_struct(jl_undefvarerror_type, var));
 }
 

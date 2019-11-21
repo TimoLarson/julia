@@ -195,10 +195,11 @@ using .Broadcast: broadcasted, broadcasted_kwsyntax, materialize, materialize!
 include("missing.jl")
 
 # version
+include("sysinfo.jl") # Moved for debugging version below
 include("version.jl")
 
 # system & environment
-include("sysinfo.jl")
+#include("sysinfo.jl")
 include("libc.jl")
 using .Libc: getpid, gethostname, time
 
