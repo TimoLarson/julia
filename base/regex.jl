@@ -25,6 +25,7 @@ mutable struct Regex
 
     function Regex(pattern::AbstractString, compile_options::Integer,
                    match_options::Integer)
+        println("--Regex inner")
         pattern = String(pattern)
         compile_options = UInt32(compile_options)
         match_options = UInt32(match_options)
@@ -43,6 +44,7 @@ mutable struct Regex
 end
 
 function Regex(pattern::AbstractString, flags::AbstractString)
+    println("--Regex outer")
     options = DEFAULT_COMPILER_OPTS
     for f in flags
         if f == 'a'
@@ -60,23 +62,42 @@ end
 Regex(pattern::AbstractString) = Regex(pattern, DEFAULT_COMPILER_OPTS, DEFAULT_MATCH_OPTS)
 
 function compile(regex::Regex)
+    println("--compile")
+    println("--1")
     if regex.regex == C_NULL
+        println("--2")
         if PCRE.PCRE_COMPILE_LOCK === nothing
+            println("--3")
             regex.regex = PCRE.compile(regex.pattern, regex.compile_options)
+            println("--4")
             PCRE.jit_compile(regex.regex)
+            println("--5")
         else
+            println("--6")
             l = PCRE.PCRE_COMPILE_LOCK::Threads.SpinLock
+            println("--7")
             lock(l)
+            println("--8")
             try
+                println("--9")
                 if regex.regex == C_NULL
+                    println("--10")
                     regex.regex = PCRE.compile(regex.pattern, regex.compile_options)
+                    println("--11")
                     PCRE.jit_compile(regex.regex)
+                    println("--12")
                 end
+                println("--13")
             finally
+                println("--14")
                 unlock(l)
+                println("--15")
             end
+            println("--16")
         end
+        println("--17")
     end
+    println("--18")
     regex
 end
 
@@ -109,6 +130,7 @@ This regex has the first three flags enabled.
 macro r_str(pattern, flags...) Regex(pattern, flags...) end
 
 function show(io::IO, re::Regex)
+    println("--show 1")
     imsxa = PCRE.CASELESS|PCRE.MULTILINE|PCRE.DOTALL|PCRE.EXTENDED|PCRE.UCP
     opts = re.compile_options
     if (opts & ~imsxa) == (DEFAULT_COMPILER_OPTS & ~imsxa)
@@ -140,6 +162,7 @@ struct RegexMatch
 end
 
 function show(io::IO, m::RegexMatch)
+    println("--show 2")
     print(io, "RegexMatch(")
     show(io, m.match)
     idx_to_capture_name = PCRE.capture_names(m.regex.regex)
@@ -162,6 +185,7 @@ end
 # Capture group extraction
 getindex(m::RegexMatch, idx::Integer) = m.captures[idx]
 function getindex(m::RegexMatch, name::Symbol)
+    println("--getindex")
     idx = PCRE.substring_number_from_name(m.regex.regex, name)
     idx <= 0 && error("no capture group named $name found in regex")
     m[idx]
@@ -169,11 +193,13 @@ end
 getindex(m::RegexMatch, name::AbstractString) = m[Symbol(name)]
 
 function occursin(r::Regex, s::AbstractString; offset::Integer=0)
+    println("--occursin 1")
     compile(r)
     return PCRE.exec_r(r.regex, String(s), offset, r.match_options)
 end
 
 function occursin(r::Regex, s::SubString; offset::Integer=0)
+    println("--occursin 2")
     compile(r)
     return PCRE.exec_r(r.regex, s, offset, r.match_options)
 end
@@ -201,11 +227,13 @@ true
 ```
 """
 function startswith(s::AbstractString, r::Regex)
+    println("--startswith 1")
     compile(r)
     return PCRE.exec_r(r.regex, String(s), 0, r.match_options | PCRE.ANCHORED)
 end
 
 function startswith(s::SubString, r::Regex)
+    println("--startswith 2")
     compile(r)
     return PCRE.exec_r(r.regex, s, 0, r.match_options | PCRE.ANCHORED)
 end
@@ -233,11 +261,13 @@ true
 ```
 """
 function endswith(s::AbstractString, r::Regex)
+    println("--endswith 1")
     compile(r)
     return PCRE.exec_r(r.regex, String(s), 0, r.match_options | PCRE.ENDANCHORED)
 end
 
 function endswith(s::SubString, r::Regex)
+    println("--endswith 2")
     compile(r)
     return PCRE.exec_r(r.regex, s, 0, r.match_options | PCRE.ENDANCHORED)
 end
@@ -272,6 +302,7 @@ true
 function match end
 
 function match(re::Regex, str::Union{SubString{String}, String}, idx::Integer, add_opts::UInt32=UInt32(0))
+    println("--match")
     compile(re)
     opts = re.match_options | add_opts
     matched, data = PCRE.exec_r_data(re.regex, str, idx-1, opts)
@@ -300,6 +331,7 @@ findnext(re::Regex, str::Union{String,SubString}, idx::Integer) = _findnext_re(r
 
 # TODO: return only start index and update deprecation
 function _findnext_re(re::Regex, str::Union{String,SubString}, idx::Integer, match_data::Ptr{Cvoid})
+    println("--_findnext_re")
     if idx > nextind(str,lastindex(str))
         throw(BoundsError())
     end
@@ -342,6 +374,7 @@ If `overlap=true`, the matching sequences are allowed to overlap indices in the
 original string, otherwise they must be from disjoint character ranges.
 """
 function findall(t::Union{AbstractString,Regex}, s::AbstractString; overlap::Bool=false)
+    println("--_findall")
     found = UnitRange{Int}[]
     i, e = firstindex(s), lastindex(s)
     while true
@@ -369,6 +402,7 @@ If `overlap=true`, the matching sequences are allowed to overlap indices in the
 original string, otherwise they must be from disjoint character ranges.
 """
 function count(t::Union{AbstractString,Regex}, s::AbstractString; overlap::Bool=false)
+    println("--count")
     n = 0
     i, e = firstindex(s), lastindex(s)
     while true
@@ -449,6 +483,7 @@ _free_pat_replacer(r::RegexAndMatchData) = PCRE.free_match_data(r.match_data)
 replace_err(repl) = error("Bad replacement string: $repl")
 
 function _write_capture(io, re::RegexAndMatchData, group)
+    println("--_write_capture")
     len = PCRE.substring_length_bynumber(re.match_data, group)
     ensureroom(io, len+1)
     PCRE.substring_copy_bynumber(re.match_data, group,
@@ -463,6 +498,7 @@ const GROUP_CHAR = 'g'
 const KEEP_ESC = [SUB_CHAR, GROUP_CHAR, '0':'9'...]
 
 function _replace(io, repl_s::SubstitutionString, str, r, re::RegexAndMatchData)
+    println("--_replace")
     LBRACKET = '<'
     RBRACKET = '>'
     repl = unescape_string(repl_s.string, KEEP_ESC)
@@ -533,6 +569,7 @@ eltype(::Type{RegexMatchIterator}) = RegexMatch
 IteratorSize(::Type{RegexMatchIterator}) = SizeUnknown()
 
 function iterate(itr::RegexMatchIterator, (offset,prevempty)=(1,false))
+    println("--iterate")
     opts_nonempty = UInt32(PCRE.ANCHORED | PCRE.NOTEMPTY_ATSTART)
     while true
         mat = match(itr.regex, itr.string, offset,
@@ -595,12 +632,14 @@ eachmatch(re::Regex, str::AbstractString; overlap = false) =
 ## comparison ##
 
 function ==(a::Regex, b::Regex)
+    println("--==")
     a.pattern == b.pattern && a.compile_options == b.compile_options && a.match_options == b.match_options
 end
 
 ## hash ##
 const hashre_seed = UInt === UInt64 ? 0x67e195eb8555e72d : 0xe32373e4
 function hash(r::Regex, h::UInt)
+    println("--hash")
     h += hashre_seed
     h = hash(r.pattern, h)
     h = hash(r.compile_options, h)
@@ -637,6 +676,7 @@ RegexMatch("ac|d")
 ```
 """
 function *(r1::Union{Regex,AbstractString,AbstractChar}, rs::Union{Regex,AbstractString,AbstractChar}...)
+    println("--*")
     mask = PCRE.CASELESS | PCRE.MULTILINE | PCRE.DOTALL | PCRE.EXTENDED # imsx
     match_opts   = nothing # all args must agree on this
     compile_opts = nothing # all args must agree on this

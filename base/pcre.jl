@@ -154,8 +154,10 @@ end
 function exec(re, subject, offset, options, match_data)
     # ADDED {
     println("re:")
-    println(typeof(re))
     println(re)
+    #trace = backtrace()
+    #stack = Base.StackTraces.stacktrace(trace, true)
+    #println(stack)
     println("subject:")
     println(subject)
     println("sizeof(subject):")
