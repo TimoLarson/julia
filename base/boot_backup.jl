@@ -142,7 +142,6 @@
 #    code::Any
 #end
 
-#=
 export
     # key types
     Any, DataType, Vararg, NTuple,
@@ -175,7 +174,6 @@ export
     applicable, invoke,
     # constants
     nothing, Main
-=#
 
 const getproperty = getfield
 const setproperty! = setfield!
@@ -434,12 +432,11 @@ Array{T}(A::AbstractArray{S,N}) where {T,N,S} = Array{T,N}(A)
 AbstractArray{T}(A::AbstractArray{S,N}) where {T,S,N} = AbstractArray{T,N}(A)
 
 # primitive Symbol constructors
-eval(Core, :(function Symbol(s::String)
-    $(Expr(:meta, :pure))
+function Symbol(s::String)
     return ccall(:jl_symbol_n, Ref{Symbol}, (Ptr{UInt8}, Int),
                  ccall(:jl_string_ptr, Ptr{UInt8}, (Any,), s),
                  sizeof(s))
-end))
+end
 function Symbol(a::Array{UInt8,1})
     return ccall(:jl_symbol_n, Ref{Symbol}, (Ptr{UInt8}, Int),
                  ccall(:jl_array_ptr, Ptr{UInt8}, (Any,), a),
@@ -743,20 +740,3 @@ Integer(x::Integer) = x
 Integer(x::Union{Float32, Float64}) = Int(x)
 
 ccall(:jl_set_istopmod, Cvoid, (Any, Bool), Core, true)
-
-####
-const var1 = 8224
-function Typeof end
-
-#fun1(x::Int) = var1 + x
-fun1(x::Int8) = var1
-
-fun1(Int8(3))
-
-baremodule sampler
-
-fun2(y) = var1 + y
-
-end
-####
-
