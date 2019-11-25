@@ -438,7 +438,7 @@ static Value *literal_pointer_val(jl_codectx_t &ctx, jl_value_t *p)
 {
     if (p == NULL)
         return V_null;
-    if (!imaging_mode)
+    if (!imaging_mode && !(jl_options.outputji && jl_options.incremental))
         return literal_static_pointer_val(ctx, p);
     Value *pgv = literal_pointer_val_slot(ctx, p);
     return tbaa_decorate(tbaa_const, maybe_mark_load_dereferenceable(
@@ -450,7 +450,7 @@ static Value *literal_pointer_val(jl_codectx_t &ctx, jl_binding_t *p)
     // emit a pointer to any jl_value_t which will be valid across reloading code
     if (p == NULL)
         return V_null;
-    if (!imaging_mode)
+    if (!imaging_mode && !(jl_options.outputji && jl_options.incremental))
         return literal_static_pointer_val(ctx, p);
     // bindings are prefixed with jl_bnd#
     Value *pgv = julia_pgv(ctx, "jl_bnd#", p->name, p->owner, p);

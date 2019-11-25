@@ -745,7 +745,7 @@ Integer(x::Union{Float32, Float64}) = Int(x)
 ccall(:jl_set_istopmod, Cvoid, (Any, Bool), Core, true)
 
 ####
-const var1 = 8224
+var1 = 8224
 function Typeof end
 
 #fun1(x::Int) = var1 + x

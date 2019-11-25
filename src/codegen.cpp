@@ -3379,6 +3379,8 @@ static void undef_var_error_ifnot(jl_codectx_t &ctx, Value *ok, jl_sym_t *name)
 static Value *global_binding_pointer(jl_codectx_t &ctx, jl_module_t *m, jl_sym_t *s,
                                      jl_binding_t **pbnd, bool assign)
 {
+    /**/jl_printf(JL_STDERR, "global_binding_pointer %s\n", jl_symbol_name(s));
+    /**/jl_uv_flush(JL_STDERR);
     jl_binding_t *b = NULL;
     if (assign) {
         b = jl_get_binding_wr(m, s, 0);
@@ -3467,6 +3469,8 @@ static jl_cgval_t emit_sparam(jl_codectx_t &ctx, size_t i)
 
 static jl_cgval_t emit_global(jl_codectx_t &ctx, jl_sym_t *sym)
 {
+    /**/jl_printf(JL_STDERR, "emit_global %s\n", jl_symbol_name(sym));
+    /**/jl_uv_flush(JL_STDERR);
     jl_binding_t *jbp = NULL;
     Value *bp = global_binding_pointer(ctx, ctx.module, sym, &jbp, false);
     assert(bp != NULL);
@@ -6924,6 +6928,8 @@ std::pair<MDNode*,MDNode*> tbaa_make_child(const char *name, MDNode *parent=null
 
 static GlobalVariable *global_to_llvm(const std::string &cname, void *addr, Module *m)
 {
+    /**/jl_printf(JL_STDERR, "global_to_llvm %s\n", cname.c_str());
+    /**/jl_uv_flush(JL_STDERR);
     GlobalVariable *gv =
         new GlobalVariable(*m, T_pjlvalue, true,
                            GlobalVariable::ExternalLinkage, NULL, cname);
@@ -6933,12 +6939,16 @@ static GlobalVariable *global_to_llvm(const std::string &cname, void *addr, Modu
 llvm::SmallVector<std::pair<jl_value_t**, GlobalVariable*>, 16> gv_for_global;
 static GlobalVariable *global_jlvalue_to_llvm(const std::string &cname, jl_value_t **addr, Module *m)
 {
+    /**/jl_printf(JL_STDERR, "global_jlvalue_to_llvm %s\n", cname.c_str());
+    /**/jl_uv_flush(JL_STDERR);
     GlobalVariable *gv = global_to_llvm(cname, (void*)addr, m);
     gv_for_global.push_back(std::make_pair(addr, gv));
     return gv;
 }
 static GlobalVariable *julia_const_gv(jl_value_t *val)
 {
+    /**/jl_printf(JL_STDERR, "julia_const_gv\n");
+    /**/jl_uv_flush(JL_STDERR);
     for (auto& kv : gv_for_global) {
         if (*kv.first == val)
             return kv.second;
