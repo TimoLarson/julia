@@ -152,6 +152,8 @@ extern JITEventListener *CreateJuliaJITEventListener();
 
 // for image reloading
 bool imaging_mode = false;
+bool any_imaging_mode = false;
+bool mod_imaging_mode = false;
 
 Module *shadow_output;
 #define jl_Module ctx.f->getParent()
@@ -1301,7 +1303,7 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
                      // don't delete inlineable code, unless it is constant
                      (codeinst->invoke == jl_fptr_const_return || !jl_ast_flag_inlineable((jl_array_t*)codeinst->inferred)) &&
                      // don't delete code when generating a precompile file
-                     !imaging_mode) {
+                     !any_imaging_mode) {
                 // if not inlineable, code won't be needed again
                 codeinst->inferred = jl_nothing;
             }
@@ -1370,7 +1372,7 @@ static void jl_setup_module(Module *m, const jl_cgparams_t *params = &jl_default
     if (!getModuleFlag(m,"Dwarf Version")) {
         int dwarf_version = 4;
 #ifdef _OS_DARWIN_
-        if (imaging_mode)
+        if (any_imaging_mode)
             dwarf_version = 2;
 #endif
         m->addModuleFlag(llvm::Module::Warning, "Dwarf Version", dwarf_version);
@@ -1541,7 +1543,7 @@ void jl_extern_c(jl_function_t *f, jl_value_t *rt, jl_value_t *argt, char *name)
     // force eager emission of the function (llvm 3.3 gets confused otherwise and tries to do recursive compilation)
     uint64_t Addr = getAddressForFunction(llvmf->getName());
 
-    if (imaging_mode)
+    if (any_imaging_mode)
         llvmf = cast<Function>(shadow_output->getNamedValue(llvmf->getName()));
 
     // make the alias to the shadow_module
@@ -1761,7 +1763,7 @@ static logdata_t coverageData;
 
 static void coverageVisitLine(jl_codectx_t &ctx, StringRef filename, int line)
 {
-    assert(!imaging_mode);
+    assert(!any_imaging_mode);
     if (filename == "" || filename == "none" || filename == "no file" || filename == "<missing>" || line < 0)
         return;
     visitLine(ctx, coverageData[filename], line, ConstantInt::get(T_int64, 1), "lcnt");
@@ -1773,7 +1775,7 @@ static logdata_t mallocData;
 
 static void mallocVisitLine(jl_codectx_t &ctx, StringRef filename, int line)
 {
-    assert(!imaging_mode);
+    assert(!any_imaging_mode);
     if (filename == "" || filename == "none" || filename == "no file" || filename == "<missing>" || line < 0)
         return;
     Value *addend = ctx.builder.CreateCall(prepare_call(diff_gc_total_bytes_func), {});
@@ -6959,7 +6961,7 @@ static GlobalVariable *julia_const_gv(jl_value_t *val)
 // TODO: do this lazily
 extern "C" void jl_fptr_to_llvm(void *fptr, jl_code_instance_t *lam, int specsig)
 {
-    if (!imaging_mode) { // in imaging mode, it's fine to use the fptr, but we don't want it in the shadow_module
+    if (!any_imaging_mode) { // in imaging mode, it's fine to use the fptr, but we don't want it in the shadow_module
         // this assigns a function pointer (from loading the system image), to the function object
         std::stringstream funcName;
         if (!specsig)
@@ -7703,6 +7705,8 @@ extern "C" void *jl_init_llvm(void)
 
     jl_page_size = jl_getpagesize();
     imaging_mode = jl_generating_output() && !jl_options.incremental;
+    any_imaging_mode = jl_generating_output();
+    mod_imaging_mode = jl_generating_output() && jl_options.incremental;
     jl_default_cgparams.module_setup = jl_nothing;
     jl_default_cgparams.module_activation = jl_nothing;
     jl_default_cgparams.raise_exception = jl_nothing;
@@ -7756,7 +7760,7 @@ extern "C" void *jl_init_llvm(void)
     TheTriple.setObjectFormat(Triple::ELF);
 #endif
     uint32_t target_flags = 0;
-    auto target = jl_get_llvm_target(imaging_mode, target_flags);
+    auto target = jl_get_llvm_target(any_imaging_mode, target_flags);
     auto &TheCPU = target.first;
     SmallVector<std::string, 10> targetFeatures(target.second.begin(), target.second.end());
     if (jl_processor_print_help || (target_flags & JL_TARGET_UNKNOWN_NAME)) {

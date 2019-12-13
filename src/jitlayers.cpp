@@ -615,7 +615,7 @@ template<class T> // for GlobalObject's
 static T *addComdat(T *G)
 {
 #if defined(_OS_WINDOWS_)
-    if (imaging_mode && !G->isDeclaration()) {
+    if (any_imaging_mode && !G->isDeclaration()) {
         // Add comdat information to make MSVC link.exe happy
         // it's valid to emit this for ld.exe too,
         // but makes it very slow to link for no benefit
@@ -865,7 +865,7 @@ void add_named_global(GlobalObject *gv, void *addr, bool dllimport)
 #ifdef _OS_WINDOWS_
     // setting JL_DLLEXPORT correctly only matters when building a binary
     // (global_proto will strip this from the JIT)
-    if (dllimport && imaging_mode) {
+    if (dllimport && any_imaging_mode) {
         assert(gv->getLinkage() == GlobalValue::ExternalLinkage);
         // add the __declspec(dllimport) attribute
         gv->setDLLStorageClass(GlobalValue::DLLImportStorageClass);
@@ -884,7 +884,7 @@ static std::map<void*, jl_value_llvm> jl_value_to_llvm;
 // for other types, the formula for implementation is straightforward:
 // (see stringConstPtr, for an alternative example to the code below)
 //
-// if in imaging_mode, emit a GlobalVariable with the same name and an initializer to the shadow_module
+// if in any_imaging_mode, emit a GlobalVariable with the same name and an initializer to the shadow_module
 // making it valid for emission and reloading in the sysimage
 //
 // then add a global mapping to the current value (usually from calloc'd space)
@@ -894,14 +894,14 @@ void** jl_emit_and_add_to_shadow(GlobalVariable *gv, void *gvarinit)
     PointerType *T = cast<PointerType>(gv->getType()->getElementType()); // pointer is the only supported type here
 
     GlobalVariable *shadowvar = NULL;
-    if (imaging_mode)
+    if (any_imaging_mode)
         shadowvar = global_proto(gv, shadow_output);
 
     if (shadowvar) {
         shadowvar->setInitializer(ConstantPointerNull::get(T));
         shadowvar->setLinkage(GlobalVariable::InternalLinkage);
         addComdat(shadowvar);
-        if (imaging_mode && gvarinit) {
+        if (any_imaging_mode && gvarinit) {
             // make the pointer valid for future sessions
             jl_sysimg_gvars.push_back(shadowvar);
             jl_value_llvm gv_struct;
@@ -928,9 +928,7 @@ void* jl_get_globalvar(GlobalVariable *gv)
 void jl_add_to_shadow(Module *m)
 {
 #ifndef KEEP_BODIES
-    if (!imaging_mode && !jl_options.outputjitbc &&
-            !(jl_options.outputji && jl_options.incremental)
-       )
+    if (!any_imaging_mode && !jl_options.outputjitbc)
         return;
 #endif
     ValueToValueMapTy VMap;
@@ -1064,7 +1062,7 @@ void jl_dump_native(const char *bc_fname, const char *unopt_bc_fname, const char
     shadow_output->setDataLayout(DL);
 
     // add metadata information
-    if (imaging_mode) {
+    if (any_imaging_mode) {
         emit_offset_table(shadow_output, jl_sysimg_gvars, "jl_sysimg_gvars");
         emit_offset_table(shadow_output, jl_sysimg_fvars, "jl_sysimg_fvars");
 
@@ -1134,12 +1132,13 @@ void jl_dump_native(const char *bc_fname, const char *unopt_bc_fname, const char
                     Kind, true, false), reportWriterError);
 
     imaging_mode = false;
+    any_imaging_mode = false;
 }
 
 extern "C" int32_t jl_assign_functionID(const char *fname)
 {
     // give the function an index in the constant lookup table
-    assert(imaging_mode);
+    assert(any_imaging_mode);
     if (fname == NULL)
         return 0;
     jl_sysimg_fvars.push_back(shadow_output->getNamedValue(fname));
