@@ -946,7 +946,10 @@ void jl_add_to_shadow(Module *m)
     for (Module::iterator I = clone->begin(), E = clone->end(); I != E; ++I) {
         Function *F = &*I;
         if (!F->isDeclaration()) {
-            F->setLinkage(Function::InternalLinkage);
+            if (jl_options.outputji && jl_options.incremental)
+                F->setLinkage(Function::ExternalLinkage);
+            else
+                F->setLinkage(Function::InternalLinkage);
             addComdat(F);
         }
     }
