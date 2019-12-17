@@ -2843,10 +2843,30 @@ JL_DLLEXPORT jl_value_t *jl_uncompress_argname_n(jl_value_t *syms, size_t i)
     return jl_nothing;
 }
 
+extern void *shadow_output;
+
+// For saving shared object related data
+JL_DLLEXPORT int jl_shadow_output_to_bc(const char *jipath)
+{
+    const char* outputext = ".bc";
+    char const* fname = (const char*)malloc(strlen(jl_options.outputpath) + strlen(jl_options.outputbase) + strlen(outputext) + 1);
+    char *s = (char*)fname;
+    strcpy(s, jl_options.outputpath);
+    s += strlen(jl_options.outputpath);
+    strcpy(s, jl_options.outputbase);
+    s += strlen(jl_options.outputbase);
+    strcpy(s, outputext);
+    s += strlen(outputext);
+    s[0] = 0;
+
+    jl_write_bitcode_module((void*)shadow_output, (char*)fname);
+    return 0;
+}
 
 JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
 {
     JL_TIMING(SAVE_MODULE);
+    jl_shadow_output_to_bc(jl_options.outputji);
     char *tmpfname = strcat(strcpy((char *) alloca(strlen(fname)+8), fname), ".XXXXXX");
     ios_t f;
     jl_array_t *mod_array = NULL, *udeps = NULL;

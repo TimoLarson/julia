@@ -46,6 +46,9 @@ julia_flisp.boot.inc.phony: julia-deps
 $(BUILDROOT)/doc/_build/html/en/index.html: $(shell find $(BUILDROOT)/base $(BUILDROOT)/doc \( -path $(BUILDROOT)/doc/_build -o -path $(BUILDROOT)/doc/deps -o -name *_constants.jl -o -name *_h.jl -o -name version_git.jl \) -prune -o -type f -print)
 	@$(MAKE) docs
 
+julia-executable: julia-src-$(JULIA_BUILD_MODE)
+	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT)/ui $(JULIA_EXECUTABLE)
+
 julia-symlink: julia-ui-$(JULIA_BUILD_MODE)
 ifeq ($(OS),WINNT)
 	@echo '@"%~dp0"\'"$(shell $(JULIAHOME)/contrib/relative_path.sh "$(BUILDROOT)" "$(JULIA_EXECUTABLE)" | tr / '\\')" '%*' > $(BUILDROOT)/julia.bat

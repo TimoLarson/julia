@@ -22,26 +22,6 @@ JL_DLLEXPORT int jl_generating_output(void)
 
 void jl_precompile(int all);
 
-extern void *shadow_output;
-
-// For saving shared object related data
-JL_DLLEXPORT int jl_shadow_output_to_bc(const char *jipath)
-{
-    const char* outputext = ".bc";
-    char const* fname = (const char*)malloc(strlen(jl_options.outputpath) + strlen(jl_options.outputbase) + strlen(outputext) + 1);
-    char *s = (char*)fname;
-    strcpy(s, jl_options.outputpath);
-    s += strlen(jl_options.outputpath);
-    strcpy(s, jl_options.outputbase);
-    s += strlen(jl_options.outputbase);
-    strcpy(s, outputext);
-    s += strlen(outputext);
-    s[0] = 0;
-
-    jl_write_bitcode_module((void*)shadow_output, (char*)fname);
-    return 0;
-}
-
 void jl_write_compiler_output(void)
 {
     if (!jl_generating_output()) {
@@ -82,11 +62,9 @@ void jl_write_compiler_output(void)
     }
 
     if (jl_options.incremental) {
-        if (jl_options.outputji) {
-            jl_shadow_output_to_bc(jl_options.outputji);
+        if (jl_options.outputji)
             if (jl_save_incremental(jl_options.outputji, worklist))
                 jl_exit(1);
-        }
         if (jl_options.outputbc || jl_options.outputunoptbc)
             jl_printf(JL_STDERR, "WARNING: incremental output to a .bc file is not implemented\n");
         if (jl_options.outputo)
