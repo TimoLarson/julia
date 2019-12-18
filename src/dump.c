@@ -10,6 +10,9 @@
 #include "julia_internal.h"
 #include "builtin_proto.h"
 
+// For dlerror()
+#include "dlfcn.h"
+
 #ifndef _OS_WINDOWS_
 #include <dlfcn.h>
 #endif
@@ -3254,11 +3257,20 @@ static void jl_link_shared_lib(const char *libpath)
         jl_method_t *meth = mi->def.method;
         jl_module_t *module = meth->module;
 
-        if (!module->libhandle)
+        jl_printf(JL_STDERR, "jl_link_shared_lib: %s\n", libpath);
+
+        if (!module->libhandle) {
+            jl_printf(JL_STDERR, "jl_link_shared_lib: opening now\n");
             module->libhandle = jl_dlopen(libpath, JL_RTLD_GLOBAL | JL_RTLD_DEEPBIND);
+            if (!module->libhandle)
+                jl_printf(JL_STDERR, "jl_link_shared_lib: open failed: %s\n", dlerror());
+        }
         void *lib = module->libhandle;
+        jl_printf(JL_STDERR, "jl_link_shared_lib: A\n");
         jl_dlsym(lib, codeinst->functionObjectsDecls.functionObject, (void**)&(codeinst->invoke), 1);
+        jl_printf(JL_STDERR, "jl_link_shared_lib: B\n");
         jl_dlsym(lib, codeinst->functionObjectsDecls.specFunctionObject, (void**)&(codeinst->specptr), 1);
+        jl_printf(JL_STDERR, "jl_link_shared_lib: done\n");
         i += 1;
     }
 }

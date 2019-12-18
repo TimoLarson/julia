@@ -3449,7 +3449,7 @@ static Value *global_binding_pointer(jl_codectx_t &ctx, jl_module_t *m, jl_sym_t
             name << "delayedvar" << globalUnique++;
             Constant *initnul = V_null;
             GlobalVariable *bindinggv = new GlobalVariable(*ctx.f->getParent(), T_pjlvalue,
-                    false, GlobalVariable::InternalLinkage,
+                    false, GlobalVariable::ExternalLinkage,
                     initnul, name.str());
             Value *cachedval = ctx.builder.CreateLoad(bindinggv);
             BasicBlock *have_val = BasicBlock::Create(jl_LLVMContext, "found"),
@@ -4896,7 +4896,7 @@ static Function* gen_cfun_wrapper(
         if (age_ok) {
             funcName << "_gfthunk";
             Function *gf_thunk = Function::Create(returninfo.decl->getFunctionType(),
-                    GlobalVariable::InternalLinkage, funcName.str(), M);
+                    GlobalVariable::ExternalLinkage, funcName.str(), M);
             gf_thunk->setAttributes(returninfo.decl->getAttributes());
             jl_init_function(gf_thunk);
             // build a  specsig -> jl_apply_generic converter thunk
@@ -5120,7 +5120,7 @@ static jl_cgval_t emit_cfunction(jl_codectx_t &ctx, jl_value_t *output_type, con
         cname << "trampolines" << globalUnique++;
         Type *T_htable = ArrayType::get(T_size, sizeof(htable_t) / sizeof(void*));
         Value *cache = new GlobalVariable(*jl_Module, T_htable, false,
-                               GlobalVariable::InternalLinkage,
+                               GlobalVariable::ExternalLinkage,
                                ConstantAggregateZero::get(T_htable),
                                cname.str());
         F = ctx.builder.CreateCall(prepare_call(jlgetcfunctiontrampoline_func), {

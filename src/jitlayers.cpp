@@ -904,9 +904,9 @@ void** jl_emit_and_add_to_shadow(GlobalVariable *gv, void *gvarinit)
 
     if (shadowvar) {
         shadowvar->setInitializer(ConstantPointerNull::get(T));
-        shadowvar->setLinkage(GlobalVariable::InternalLinkage);
+        shadowvar->setLinkage(GlobalVariable::ExternalLinkage);
         addComdat(shadowvar);
-        if (imaging_mode && gvarinit) {
+        if ((imaging_mode || (jl_options.outputji && jl_options.incremental)) && gvarinit) {
             // make the pointer valid for future sessions
             jl_sysimg_gvars.push_back(shadowvar);
             jl_value_llvm gv_struct;
@@ -949,7 +949,7 @@ void jl_add_to_shadow(Module *m)
             if (jl_options.outputji && jl_options.incremental)
                 F->setLinkage(Function::ExternalLinkage);
             else
-                F->setLinkage(Function::InternalLinkage);
+                F->setLinkage(Function::ExternalLinkage);
             addComdat(F);
         }
     }

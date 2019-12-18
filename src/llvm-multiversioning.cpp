@@ -734,7 +734,7 @@ std::pair<uint32_t,GlobalVariable*> CloneCtx::get_reloc_slot(Function *F)
     auto id = get_func_id(F);
     auto &slot = const_relocs[id];
     if (!slot)
-        slot = new GlobalVariable(M, T_pvoidfunc, false, GlobalVariable::InternalLinkage,
+        slot = new GlobalVariable(M, T_pvoidfunc, false, GlobalVariable::ExternalLinkage,
                                   ConstantPointerNull::get(T_pvoidfunc),
                                   F->getName() + ".reloc_slot");
     return std::make_pair(id, slot);
