@@ -363,6 +363,8 @@ static Value *literal_pointer_val_slot(jl_codectx_t &ctx, jl_value_t *p)
     }
     // something else gets just a generic name
     return julia_pgv(ctx, "jl_global#", p);
+    //std::string name = std::string("jl_global_") + jl_typeof_str(p) + "_#";
+    //return julia_pgv(ctx, name.c_str(), p);
 }
 
 static size_t dereferenceable_size(jl_value_t *jt)
