@@ -7052,7 +7052,7 @@ static GlobalVariable *julia_const_gv(jl_value_t *val)
 // TODO: do this lazily
 extern "C" void jl_fptr_to_llvm(void *fptr, jl_code_instance_t *lam, int specsig)
 {
-    if (!imaging_mode) { // in imaging mode, it's fine to use the fptr, but we don't want it in the shadow_module
+    if (!imaging_mode && !(jl_options.outputji && jl_options.incremental)) { // in imaging mode, it's fine to use the fptr, but we don't want it in the shadow_module
         // this assigns a function pointer (from loading the system image), to the function object
         std::stringstream funcName;
         if (!specsig)
