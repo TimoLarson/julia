@@ -899,7 +899,7 @@ void** jl_emit_and_add_to_shadow(GlobalVariable *gv, void *gvarinit)
     PointerType *T = cast<PointerType>(gv->getType()->getElementType()); // pointer is the only supported type here
 
     GlobalVariable *shadowvar = NULL;
-    if (imaging_mode)
+    if (imaging_mode || (jl_options.outputji && jl_options.incremental))
         shadowvar = global_proto(gv, shadow_output);
 
     if (shadowvar) {
@@ -934,7 +934,8 @@ void jl_add_to_shadow(Module *m)
 {
 #ifndef KEEP_BODIES
     if (!imaging_mode && !jl_options.outputjitbc &&
-            !(jl_options.outputji && jl_options.incremental && addtolib))
+            //!(jl_options.outputji && jl_options.incremental && addtolib))
+            !(jl_options.outputji && jl_options.incremental))
         return;
 #endif
     ValueToValueMapTy VMap;
