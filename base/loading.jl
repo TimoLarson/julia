@@ -1154,6 +1154,7 @@ function create_expr_cache(input::String, output::String, concrete_deps::typeof(
         end
         """
     io = open(pipeline(`$(julia_cmd()) -O0
+                       --output-bc $(output).bc
                        --output-ji $output --output-incremental=yes
                        --startup-file=no --history-file=no --warn-overwrite=yes
                        --color=$(have_color ? "yes" : "no")

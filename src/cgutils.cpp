@@ -142,7 +142,7 @@ static Value *stringConstPtr(IRBuilder<> &irbuilder, const std::string &txt)
     StringMap<GlobalVariable*>::iterator pooledval =
         stringConstants.insert(std::pair<StringRef, GlobalVariable*>(ctxt, NULL)).first;
     StringRef pooledtxt = pooledval->getKey();
-    if (imaging_mode || (jl_options.outputji && jl_options.incremental)) {
+    if (imaging_mode) {
         if (pooledval->second == NULL) {
             static int strno = 0;
             std::stringstream ssno;
@@ -328,7 +328,7 @@ static Value *literal_pointer_val_slot(jl_codectx_t &ctx, jl_value_t *p)
 {
     // emit a pointer to a jl_value_t* which will allow it to be valid across reloading code
     // also, try to give it a nice name for gdb, for easy identification
-    if (!(imaging_mode || (jl_options.outputji && jl_options.incremental))) {
+    if (!imaging_mode) {
         Module *M = jl_Module;
         GlobalVariable *gv = new GlobalVariable(
                 *M, T_pjlvalue, true, GlobalVariable::PrivateLinkage,
@@ -363,8 +363,6 @@ static Value *literal_pointer_val_slot(jl_codectx_t &ctx, jl_value_t *p)
     }
     // something else gets just a generic name
     return julia_pgv(ctx, "jl_global#", p);
-    //std::string name = std::string("jl_global_") + jl_typeof_str(p) + "_#";
-    //return julia_pgv(ctx, name.c_str(), p);
 }
 
 static size_t dereferenceable_size(jl_value_t *jt)
@@ -440,7 +438,7 @@ static Value *literal_pointer_val(jl_codectx_t &ctx, jl_value_t *p)
 {
     if (p == NULL)
         return V_null;
-    if (!(imaging_mode || (jl_options.outputji && jl_options.incremental)))
+    if (!imaging_mode)
         return literal_static_pointer_val(ctx, p);
     Value *pgv = literal_pointer_val_slot(ctx, p);
     return tbaa_decorate(tbaa_const, maybe_mark_load_dereferenceable(
@@ -452,7 +450,7 @@ static Value *literal_pointer_val(jl_codectx_t &ctx, jl_binding_t *p)
     // emit a pointer to any jl_value_t which will be valid across reloading code
     if (p == NULL)
         return V_null;
-    if (!(imaging_mode || (jl_options.outputji && jl_options.incremental)))
+    if (!imaging_mode)
         return literal_static_pointer_val(ctx, p);
     // bindings are prefixed with jl_bnd#
     Value *pgv = julia_pgv(ctx, "jl_bnd#", p->name, p->owner, p);
@@ -494,7 +492,7 @@ static Value *julia_binding_gv(jl_codectx_t &ctx, jl_binding_t *b)
     // emit a literal_pointer_val to the value field of a jl_binding_t
     // binding->value are prefixed with *
     Value *bv;
-    if (imaging_mode || (jl_options.outputji && jl_options.incremental))
+    if (imaging_mode)
         bv = emit_bitcast(ctx,
                 tbaa_decorate(tbaa_const,
                               ctx.builder.CreateLoad(T_pjlvalue, julia_pgv(ctx, "*", b->name, b->owner, b))),
@@ -864,14 +862,14 @@ static jl_cgval_t emit_typeof(jl_codectx_t &ctx, const jl_cgval_t &p)
                 [&](unsigned idx, jl_datatype_t *jt) { },
                 p.typ,
                 counter);
-        Value *datatype_or_p = ((imaging_mode || (jl_options.outputji && jl_options.incremental)) ? Constant::getNullValue(T_ppjlvalue) :
+        Value *datatype_or_p = (imaging_mode ? Constant::getNullValue(T_ppjlvalue) :
                                 Constant::getNullValue(T_prjlvalue));
         counter = 0;
         for_each_uniontype_small(
             [&](unsigned idx, jl_datatype_t *jt) {
                 Value *cmp = ctx.builder.CreateICmpEQ(tindex, ConstantInt::get(T_int8, idx));
                 Value *ptr;
-                if (imaging_mode || (jl_options.outputji && jl_options.incremental)) {
+                if (imaging_mode) {
                     ptr = literal_pointer_val_slot(ctx, (jl_value_t*)jt);
                 }
                 else {
@@ -882,7 +880,7 @@ static jl_cgval_t emit_typeof(jl_codectx_t &ctx, const jl_cgval_t &p)
             p.typ,
             counter);
         auto emit_unboxty = [&] () -> Value* {
-            if (imaging_mode || (jl_options.outputji && jl_options.incremental))
+            if (imaging_mode)
                 return maybe_decay_untracked(
                     tbaa_decorate(tbaa_const, ctx.builder.CreateLoad(T_pjlvalue, datatype_or_p)));
             return datatype_or_p;

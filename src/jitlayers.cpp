@@ -899,14 +899,14 @@ void** jl_emit_and_add_to_shadow(GlobalVariable *gv, void *gvarinit)
     PointerType *T = cast<PointerType>(gv->getType()->getElementType()); // pointer is the only supported type here
 
     GlobalVariable *shadowvar = NULL;
-    if (imaging_mode || (jl_options.outputji && jl_options.incremental))
+    if (imaging_mode)
         shadowvar = global_proto(gv, shadow_output);
 
     if (shadowvar) {
         shadowvar->setInitializer(ConstantPointerNull::get(T));
         shadowvar->setLinkage(GlobalVariable::ExternalLinkage);
         addComdat(shadowvar);
-        if ((imaging_mode || (jl_options.outputji && jl_options.incremental)) && gvarinit) {
+        if (imaging_mode && gvarinit) {
             // make the pointer valid for future sessions
             jl_sysimg_gvars.push_back(shadowvar);
             jl_value_llvm gv_struct;
@@ -933,9 +933,7 @@ void* jl_get_globalvar(GlobalVariable *gv)
 void jl_add_to_shadow(Module *m)
 {
 #ifndef KEEP_BODIES
-    if (!imaging_mode && !jl_options.outputjitbc &&
-            //!(jl_options.outputji && jl_options.incremental && addtolib))
-            !(jl_options.outputji && jl_options.incremental))
+    if (!imaging_mode && !jl_options.outputjitbc)
         return;
 #endif
     ValueToValueMapTy VMap;

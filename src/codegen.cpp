@@ -1252,8 +1252,6 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             last_time = jl_hrtime();
         nested_compile = true;
 
-        bool sharedlib = jl_options.outputji && jl_options.incremental;
-
         // Step 3. actually do the work of emitting the function
         std::unique_ptr<Module> m;
         JL_TRY {
@@ -1297,7 +1295,7 @@ jl_code_instance_t *jl_compile_linfo(jl_method_instance_t *mi, jl_code_info_t *s
             jl_finalize_module(m.release(), !toplevel);
 
             // Mark this code instance as having been native compiled
-            if (!toplevel && sharedlib && addtolib)
+            if (!toplevel && (jl_options.outputji && jl_options.incremental) && addtolib)
                 codeinst->natived = 1;
         }
 
@@ -7052,7 +7050,7 @@ static GlobalVariable *julia_const_gv(jl_value_t *val)
 // TODO: do this lazily
 extern "C" void jl_fptr_to_llvm(void *fptr, jl_code_instance_t *lam, int specsig)
 {
-    if (!imaging_mode && !(jl_options.outputji && jl_options.incremental)) { // in imaging mode, it's fine to use the fptr, but we don't want it in the shadow_module
+    if (!imaging_mode) { // in imaging mode, it's fine to use the fptr, but we don't want it in the shadow_module
         // this assigns a function pointer (from loading the system image), to the function object
         std::stringstream funcName;
         if (!specsig)
@@ -7794,7 +7792,7 @@ extern "C" void *jl_init_llvm(void)
     cl::ParseEnvironmentOptions("Julia", "JULIA_LLVM_ARGS");
 
     jl_page_size = jl_getpagesize();
-    imaging_mode = jl_generating_output() && !jl_options.incremental;
+    imaging_mode = jl_generating_output();
     jl_default_cgparams.module_setup = jl_nothing;
     jl_default_cgparams.module_activation = jl_nothing;
     jl_default_cgparams.raise_exception = jl_nothing;
