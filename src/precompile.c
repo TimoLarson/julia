@@ -63,8 +63,9 @@ void jl_write_compiler_output(void)
 
     if (jl_options.incremental) {
         if (jl_options.outputji)
-            if (jl_save_incremental(jl_options.outputji, worklist))
-                jl_exit(1);
+            jl_save_system_image(jl_options.outputji);
+            //if (jl_save_incremental(jl_options.outputji, worklist))
+            //    jl_exit(1);
         if (jl_options.outputbc || jl_options.outputunoptbc)
             jl_printf(JL_STDERR, "WARNING: incremental output to a .bc file is not implemented\n");
         if (jl_options.outputo)

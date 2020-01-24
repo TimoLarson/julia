@@ -7751,7 +7751,7 @@ extern "C" void *jl_init_llvm(void)
     cl::ParseEnvironmentOptions("Julia", "JULIA_LLVM_ARGS");
 
     jl_page_size = jl_getpagesize();
-    imaging_mode = jl_generating_output() && !jl_options.incremental;
+    imaging_mode = jl_generating_output();
     jl_default_cgparams.module_setup = jl_nothing;
     jl_default_cgparams.module_activation = jl_nothing;
     jl_default_cgparams.raise_exception = jl_nothing;

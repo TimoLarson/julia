@@ -201,7 +201,7 @@ JL_DLLEXPORT int jl_running_on_valgrind(void)
 
 static void jl_load_sysimg_so(void)
 {
-    int imaging_mode = jl_generating_output() && !jl_options.incremental;
+    int imaging_mode = jl_generating_output();
     // in --build mode only use sysimg data, not precompiled native code
     if (!imaging_mode && jl_options.use_sysimage_native_code==JL_OPTIONS_USE_SYSIMAGE_NATIVE_CODE_YES) {
         jl_dlsym(jl_sysimg_handle, "jl_sysimg_gvars_base", (void **)&sysimg_gvars_base, 1);
