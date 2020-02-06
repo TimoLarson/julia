@@ -616,6 +616,8 @@ static inline void jl_set_gc_and_wait(void)
 JL_DLLEXPORT jl_value_t *jl_dump_fptr_asm(uint64_t fptr, int raw_mc, const char *asm_variant, const char *debuginfo);
 void jl_dump_native(const char *bc_fname, const char *unopt_bc_fname, const char *obj_fname, const char *sysimg_data, size_t sysimg_len);
 int32_t jl_get_llvm_gv(jl_value_t *p) JL_NOTSAFEPOINT;
+char *jl_get_global_native_name(char *name, void *owner, void *addr) JL_NOTSAFEPOINT;
+char *jl_get_global_native_name_for_value(jl_value_t *val) JL_NOTSAFEPOINT;
 int32_t jl_assign_functionID(const char *fname);
 
 // the first argument to jl_idtable_rehash is used to return a value

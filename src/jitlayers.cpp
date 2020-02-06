@@ -851,14 +851,14 @@ void** jl_emit_and_add_to_shadow(GlobalVariable *gv, void *gvarinit)
     PointerType *T = cast<PointerType>(gv->getType()->getElementType()); // pointer is the only supported type here
 
     GlobalVariable *shadowvar = NULL;
-    if (imaging_mode)
+    if (imaging_mode || (jl_options.outputji && jl_options.incremental))
         shadowvar = global_proto(gv, shadow_output);
 
     if (shadowvar) {
         shadowvar->setInitializer(ConstantPointerNull::get(T));
-        shadowvar->setLinkage(GlobalVariable::InternalLinkage);
+        shadowvar->setLinkage(GlobalVariable::ExternalLinkage);
         addComdat(shadowvar);
-        if (imaging_mode && gvarinit) {
+        if ((imaging_mode || (jl_options.outputji && jl_options.incremental)) && gvarinit) {
             // make the pointer valid for future sessions
             jl_sysimg_gvars.push_back(shadowvar);
             jl_value_llvm gv_struct;
@@ -887,6 +887,7 @@ void jl_add_to_shadow(Module *m)
 #ifndef KEEP_BODIES
     if (!imaging_mode && !jl_options.outputjitbc &&
             !(jl_options.outputji && jl_options.incremental && addtolib))
+            //!(jl_options.outputji && jl_options.incremental))
         return;
 #endif
     ValueToValueMapTy VMap;
@@ -894,7 +895,7 @@ void jl_add_to_shadow(Module *m)
     for (Module::iterator I = clone->begin(), E = clone->end(); I != E; ++I) {
         Function *F = &*I;
         if (!F->isDeclaration()) {
-            F->setLinkage(Function::InternalLinkage);
+            F->setLinkage(Function::ExternalLinkage);
             addComdat(F);
         }
     }
@@ -1099,7 +1100,17 @@ extern "C" int32_t jl_get_llvm_gv(jl_value_t *p)
     return it->second.index;
 }
 
-GlobalVariable *jl_get_global_for(const char *cname, void *addr, Module *M)
+Value *jl_get_llvm_gv_ptr(jl_value_t *p)
+{
+    // map a jl_value_t memory location to a GlobalVariable
+    std::map<void*, jl_value_llvm>::iterator it;
+    it = jl_value_to_llvm.find(p);
+    if (it == jl_value_to_llvm.end())
+        return 0;
+    return it->second.gv;
+}
+
+GlobalVariable *jl_get_global_for(const char *cname, void *addr, Module *M, char *nativeName)
 {
     // emit a GlobalVariable for a jl_value_t named "cname"
     std::map<void*, jl_value_llvm>::iterator it;
@@ -1108,14 +1119,34 @@ GlobalVariable *jl_get_global_for(const char *cname, void *addr, Module *M)
     if (it != jl_value_to_llvm.end())
         return prepare_global_in(M, (llvm::GlobalVariable*)it->second.gv);
 
+    if (strstr(cname, "chipmunk"))
+        printf("GLOBAL: %s\n", cname);
+
     std::stringstream gvname;
-    gvname << cname << globalUnique++;
+    if (nativeName)
+        gvname << nativeName;
+    else
+        gvname << cname << globalUnique++;
     // no existing GlobalVariable, create one and store it
     GlobalVariable *gv = new GlobalVariable(*M, T_pjlvalue,
                            false, GlobalVariable::ExternalLinkage,
                            NULL, gvname.str());
     *jl_emit_and_add_to_shadow(gv, addr) = addr;
     return gv;
+}
+
+char *jl_get_global_native_name(char *name, void *owner, void *addr)
+{
+    GlobalVariable *gv = jl_get_global_for(name, addr, (Module*)owner, NULL);
+    return (char*)gv->getName().str().c_str();
+}
+
+char *jl_get_global_native_name_for_value(jl_value_t *val)
+{
+    Value *gv = jl_get_llvm_gv_ptr(val);
+    if (!gv)
+        return 0;
+    return (char*)gv->getName().str().c_str();
 }
 
 // An LLVM module pass that just runs all julia passes in order. Useful for

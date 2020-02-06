@@ -2205,7 +2205,7 @@ void jl_init_types(void) JL_GC_DISABLED
                             //"edges",
                             //"absolute_max",
                             "invoke", "specptr",
-                            "", "", // function object decls
+                            "functionObject", "specFunctionObject", // function object decls
                             "natived"),
                         jl_svec(12,
                             jl_method_instance_type,

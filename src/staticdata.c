@@ -124,8 +124,9 @@ typedef struct {
     ios_t *symbols;
     ios_t *relocs;
     ios_t *gvar_record;
+    ios_t *gname_record;
     ios_t *fptr_record;
-    ios_t *name_record;
+    ios_t *fname_record;
     arraylist_t relocs_list;
     arraylist_t gctags_list;
     jl_ptls_t ptls;
@@ -267,6 +268,18 @@ static void jl_serialize_module(jl_serializer_state *s, jl_module_t *m)
             jl_serialize_value(s, b->value);
             jl_serialize_value(s, b->globalref);
             jl_serialize_value(s, b->owner);
+            /*
+            if (strstr(jl_symbol_name(b->name), "chipmunk"))
+                printf("----> jl_serialize_module binding name: %s\n", jl_symbol_name(b->name));
+            if (b->owner == m || m != jl_main_module) {
+                if (strstr(jl_symbol_name(b->name), "chipmunk"))
+                    printf("====> jl_serialize_module binding name: %s\n", jl_symbol_name(b->name));
+                jl_serialize_value(s, b->name);
+                jl_serialize_value(s, b->value);
+                jl_serialize_value(s, b->globalref);
+                jl_serialize_value(s, b->owner);
+            }
+            */
         }
     }
 
@@ -378,10 +391,11 @@ static void ios_ensureroom(ios_t *s, size_t newsize) JL_NOTSAFEPOINT
     }
 }
 
-static void record_gvar(jl_serializer_state *s, int gid, uintptr_t reloc_id) JL_NOTSAFEPOINT
+static void record_gvar(jl_serializer_state *s, int gid, uintptr_t reloc_id, char *nativeName) JL_NOTSAFEPOINT
 {
     if (gid == 0)
         return;
+    ios_write(s->gname_record, nativeName, strlen(nativeName) + 1);
     ios_ensureroom(s->gvar_record, gid * sizeof(uint32_t));
     ios_seek(s->gvar_record, (gid - 1) * sizeof(uint32_t));
     assert(reloc_id < UINT32_MAX);
@@ -492,6 +506,7 @@ static void jl_write_module(jl_serializer_state *s, uintptr_t item, jl_module_t 
     for (i = 1; i < m->bindings.size; i += 2) {
         if (table[i] != HT_NOTFOUND) {
             jl_binding_t *b = (jl_binding_t*)table[i];
+<<<<<<< HEAD
             write_gctaggedfield(s, (uintptr_t)BindingRef << RELOC_TAG_OFFSET);
             tot += sizeof(void*);
             size_t binding_reloc_offset = ios_pos(s->s);
@@ -504,6 +519,48 @@ static void jl_write_module(jl_serializer_state *s, uintptr_t item, jl_module_t 
             ios_write(s->s, (char*)b + flag_offset, sizeof(*b) - flag_offset);
             tot += sizeof(jl_binding_t);
             count += 1;
+=======
+            if (strstr(jl_symbol_name(b->name), "chipmunk"))
+                printf("----> jl_write_module binding name: %s\n", jl_symbol_name(b->name));
+            if (b->owner == m || m != jl_main_module) {
+                if (strstr(jl_symbol_name(b->name), "chipmunk"))
+                    printf("====>jl_write_module binding name: %s\n", jl_symbol_name(b->name));
+                write_gctaggedfield(s, (uintptr_t)BindingRef << RELOC_TAG_OFFSET);
+                tot += sizeof(void*);
+                size_t binding_reloc_offset = ios_pos(s->s);
+
+                // There are 3 locations of this to fix; search for record_gvar to find them
+                //
+                // Notes: looks like the Module could be the shadowmodule,
+                // the address we know below from jl_get_llvm_gv,
+                // the name we need to figure out.
+                //
+                // When this is all done we need to call something like jl_get_global_for for each global during loading the system image and libraries.
+                //
+                // Somehow make sure the global variable gets created and retrieve its nativeName
+                //if (strstr(jl_symbol_name(b->name), "chipmunk")) {
+                    printf("owner: %p\n", b->owner);
+                    printf("binding name: %s\n", jl_symbol_name(b->name));
+                //}
+
+                char *nativeName = jl_get_global_native_name(jl_symbol_name(b->name), b->owner, b);
+                //if (strstr(jl_symbol_name(b->name), "chipmunk")) {
+                    printf("native name: %s\n", nativeName);
+                //}
+
+                // Pass the nativeName to record_gvar so it can write it to the binary
+                record_gvar(s, jl_get_llvm_gv((jl_value_t*)b), ((uintptr_t)DataRef << RELOC_TAG_OFFSET) + binding_reloc_offset, nativeName);
+
+                write_pointerfield(s, (jl_value_t*)b->name);
+                write_pointerfield(s, b->value);
+                write_pointerfield(s, b->globalref);
+                write_pointerfield(s, (jl_value_t*)b->owner);
+                size_t flag_offset = offsetof(jl_binding_t, owner) + sizeof(b->owner);
+                ios_write(s->s, (char*)b + flag_offset, sizeof(*b) - flag_offset);
+                tot += sizeof(jl_binding_t);
+                count += 1;
+            }
+>>>>>>> 5dd4770c75... globals
         }
     }
     assert(ios_pos(s->s) - reloc_offset == tot);
@@ -615,7 +672,10 @@ static void jl_write_values(jl_serializer_state *s)
         size_t reloc_offset = ios_pos(s->s);
         assert(item < layout_table.len && layout_table.items[item] == NULL);
         layout_table.items[item] = (void*)reloc_offset;
-        record_gvar(s, jl_get_llvm_gv(v), ((uintptr_t)DataRef << RELOC_TAG_OFFSET) + reloc_offset);
+        // Somehow make sure the global variable gets created and retrieve its nativeName
+        char *nativeName = jl_get_global_native_name_for_value(v);
+        // Pass the nativeName to record_gvar so it can write it to the binary
+        record_gvar(s, jl_get_llvm_gv(v), ((uintptr_t)DataRef << RELOC_TAG_OFFSET) + reloc_offset, nativeName);
 
         // write data
         if (jl_is_cpointer(v)) {
@@ -822,8 +882,8 @@ static void jl_write_values(jl_serializer_state *s)
                                 fptr_id = JL_API_WITH_PARAMETERS;
                             }
                             else {
-                                ios_write(s->name_record, functionObject, strlen(functionObject) + 1);
-                                //ios_write(s->name_record, specFunctionObject, strlen(specFunctionObject) + 1);
+                                ios_write(s->fname_record, functionObject, strlen(functionObject) + 1);
+                                //ios_write(s->fname_record, specFunctionObject, strlen(specFunctionObject) + 1);
                                 int func = jl_assign_functionID(fname);
                                 assert(func > 0);
                                 ios_ensureroom(s->fptr_record, func * sizeof(void*));
@@ -835,8 +895,8 @@ static void jl_write_values(jl_serializer_state *s)
                             }
                             fname = m->functionObjectsDecls.specFunctionObject;
                             if (fname) {
-                                //ios_write(s->name_record, functionObject, strlen(functionObject) + 1);
-                                ios_write(s->name_record, specFunctionObject, strlen(specFunctionObject) + 1);
+                                //ios_write(s->fname_record, functionObject, strlen(functionObject) + 1);
+                                ios_write(s->fname_record, specFunctionObject, strlen(specFunctionObject) + 1);
                                 int cfunc = jl_assign_functionID(fname);
                                 assert(cfunc > 0);
                                 ios_ensureroom(s->fptr_record, cfunc * sizeof(void*));
@@ -902,7 +962,10 @@ static void jl_write_gv_syms(jl_serializer_state *s, jl_sym_t *v)
     if (gv != 0) {
         uintptr_t item = backref_id(s, v);
         assert(item >> RELOC_TAG_OFFSET == SymbolRef);
-        record_gvar(s, gv, item);
+        // Somehow make sure the global variable gets created and retrieve its nativeName
+        char *nativeName = jl_get_global_native_name_for_value((jl_value_t*)v);
+        // Pass the nativeName to record_gvar so it can write it to the binary
+        record_gvar(s, gv, item, nativeName);
     }
     if (v->left)
         jl_write_gv_syms(s, v->left);
@@ -916,7 +979,10 @@ static void jl_write_gv_int(jl_serializer_state *s, jl_value_t *v)
     if (gv != 0) {
         uintptr_t item = backref_id(s, v);
         assert(item >> RELOC_TAG_OFFSET == TagRef);
-        record_gvar(s, gv, item);
+        // Somehow make sure the global variable gets created and retrieve its nativeName
+        char *nativeName = jl_get_global_native_name_for_value(v);
+        // Pass the nativeName to record_gvar so it can write it to the binary
+        record_gvar(s, gv, item, nativeName);
     }
 }
 static void jl_write_gv_ints(jl_serializer_state *s)
@@ -1165,7 +1231,7 @@ static void jl_update_all_fptrs(jl_serializer_state *s)
     uint32_t clone_idx = 0;
     printf("NAME:\n");
     fflush(stdout);
-    char *name = (char*)s->name_record->buf;
+    char *name = (char*)s->fname_record->buf;
     printf("%s\n", name);
     fflush(stdout);
     for (i = 0; i < sysimg_fvars_max; i++) {
@@ -1196,7 +1262,7 @@ static void jl_update_all_fptrs(jl_serializer_state *s)
             void *fptr = (void*)(base + offset);
 
             // ADDED (
-            const char* unadorned_name = jl_symbol_name(codeinst->def->def.method->name);
+            //const char* unadorned_name = jl_symbol_name(codeinst->def->def.method->name);
             char *functionObject = NULL;
             char *specFunctionObject = NULL;
             if (specfunc)
@@ -1294,6 +1360,8 @@ static void jl_reinit_item(jl_value_t *v, int how)
             } *b;
             b = (struct binding*)&mod[1];
             while (nbindings > 0) {
+                if (strstr(jl_symbol_name(b->b.name), "chipmunk"))
+                    printf("jl_reinit_item binding name: %s\n", jl_symbol_name(b->b.name));
                 ptrhash_put(&mod->bindings, (char*)b->b.name, &b->b);
                 b += 1;
                 nbindings -= 1;
@@ -1366,22 +1434,24 @@ static void jl_save_system_image_to_stream(ios_t *f)
     htable_reset(&backref_table, 250000);
     arraylist_new(&reinit_list, 0);
     backref_table_numel = 0;
-    ios_t sysimg, const_data, symbols, relocs, gvar_record, fptr_record, name_record;
+    ios_t sysimg, const_data, symbols, relocs, gvar_record, gname_record, fptr_record, fname_record;
     ios_mem(&sysimg,     1000000);
     ios_mem(&const_data,  100000);
     ios_mem(&symbols,     100000);
     ios_mem(&relocs,      100000);
     ios_mem(&gvar_record, 100000);
+    ios_mem(&gname_record, 10000);
     ios_mem(&fptr_record, 100000);
-    ios_mem(&name_record, 100000);
+    ios_mem(&fname_record, 10000);
     jl_serializer_state s;
     s.s = &sysimg;
     s.const_data = &const_data;
     s.symbols = &symbols;
     s.relocs = &relocs;
     s.gvar_record = &gvar_record;
+    s.gname_record = &gname_record;
     s.fptr_record = &fptr_record;
-    s.name_record = &name_record;
+    s.fname_record = &fname_record;
     s.ptls = jl_get_ptls_states();
     arraylist_new(&s.relocs_list, 0);
     arraylist_new(&s.gctags_list, 0);
@@ -1456,15 +1526,20 @@ static void jl_save_system_image_to_stream(ios_t *f)
     ios_copyall(f, &gvar_record);
     ios_close(&gvar_record);
 
+    write_uint32(f, gname_record.size);
+    ios_seek(&gname_record, 0);
+    ios_copyall(f, &gname_record);
+    ios_close(&gname_record);
+
     write_uint32(f, fptr_record.size);
     ios_seek(&fptr_record, 0);
     ios_copyall(f, &fptr_record);
     ios_close(&fptr_record);
 
-    write_uint32(f, name_record.size);
-    ios_seek(&name_record, 0);
-    ios_copyall(f, &name_record);
-    ios_close(&name_record);
+    write_uint32(f, fname_record.size);
+    ios_seek(&fname_record, 0);
+    ios_copyall(f, &fname_record);
+    ios_close(&fname_record);
 
     { // step 4: record locations of special roots
         s.s = f;
@@ -1525,7 +1600,7 @@ JL_DLLEXPORT void jl_preload_sysimg_so(const char *fname)
 
     // Get handle to sys.so
     if (!is_ji) // .ji extension => load .ji file only
-        jl_set_sysimg_so(jl_load_dynamic_library(fname, JL_RTLD_LOCAL | JL_RTLD_NOW, 1));
+        jl_set_sysimg_so(jl_load_dynamic_library(fname, JL_RTLD_GLOBAL | JL_RTLD_NOW, 1));
 }
 
 // Allow passing in a module handle directly, rather than a path
@@ -1546,15 +1621,16 @@ static void jl_restore_system_image_from_stream(ios_t *f)
     JL_TIMING(SYSIMG_LOAD);
     int en = jl_gc_enable(0);
     jl_init_serializer2(0);
-    ios_t sysimg, const_data, symbols, relocs, gvar_record, fptr_record, name_record;
+    ios_t sysimg, const_data, symbols, relocs, gvar_record, gname_record, fptr_record, fname_record;
     jl_serializer_state s;
     s.s = NULL;
     s.const_data = &const_data;
     s.symbols = &symbols;
     s.relocs = &relocs;
     s.gvar_record = &gvar_record;
+    s.gname_record = &gname_record;
     s.fptr_record = &fptr_record;
-    s.name_record = &name_record;
+    s.fname_record = &fname_record;
     s.ptls = jl_get_ptls_states();
     arraylist_new(&s.relocs_list, 0);
     arraylist_new(&s.gctags_list, 0);
@@ -1585,15 +1661,20 @@ static void jl_restore_system_image_from_stream(ios_t *f)
     ios_static_buffer(&gvar_record, f->buf + f->bpos, sizeof_gvar_record);
     ios_skip(f, sizeof_gvar_record);
 
+    size_t sizeof_gname_record = read_uint32(f);
+    assert(!ios_eof(f));
+    ios_static_buffer(&gname_record, f->buf + f->bpos, sizeof_gname_record);
+    ios_skip(f, sizeof_gname_record);
+
     size_t sizeof_fptr_record = read_uint32(f);
     assert(!ios_eof(f));
     ios_static_buffer(&fptr_record, f->buf + f->bpos, sizeof_fptr_record);
     ios_skip(f, sizeof_fptr_record);
 
-    size_t sizeof_name_record = read_uint32(f);
+    size_t sizeof_fname_record = read_uint32(f);
     assert(!ios_eof(f));
-    ios_static_buffer(&name_record, f->buf + f->bpos, sizeof_name_record);
-    ios_skip(f, sizeof_name_record);
+    ios_static_buffer(&fname_record, f->buf + f->bpos, sizeof_fname_record);
+    ios_skip(f, sizeof_fname_record);
 
     // step 2: get references to special values
     s.s = f;
@@ -1634,6 +1715,7 @@ static void jl_restore_system_image_from_stream(ios_t *f)
     ios_close(&const_data);
     jl_update_all_gvars(&s); // gvars relocs
     ios_close(&gvar_record);
+    ios_close(&gname_record);
     s.s = NULL;
 
     s.s = f;
@@ -1648,23 +1730,25 @@ static void jl_restore_system_image_from_stream(ios_t *f)
                "    tags list: %8u\n"
                "   reloc list: %8u\n"
                "    gvar list: %8u\n"
+               "   gname list: %8u\n"
                "    fptr list: %8u\n"
-               "    name list: %8u\n",
+               "   fname list: %8u\n",
             (unsigned)sizeof_sysimg,
             (unsigned)sizeof_constdata,
             (unsigned)sizeof_symbols,
             (unsigned)sizeof_tags,
             (unsigned)(sizeof_relocations - sizeof_tags),
             (unsigned)sizeof_gvar_record,
+            (unsigned)sizeof_gname_record,
             (unsigned)sizeof_fptr_record,
-            (unsigned)sizeof_name_record);
+            (unsigned)sizeof_fname_record);
     }
 
     s.s = &sysimg;
     jl_init_codegen();
     jl_update_all_fptrs(&s); // fptr relocs and registration
     ios_close(&fptr_record);
-    ios_close(&name_record);
+    ios_close(&fname_record);
     ios_close(&sysimg);
     s.s = NULL;
 

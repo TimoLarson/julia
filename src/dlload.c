@@ -162,7 +162,7 @@ JL_DLLEXPORT void *jl_load_dynamic_library(const char *modname, unsigned flags, 
         Dl_info info;
         if (!dladdr((void*)(uintptr_t)&jl_load_dynamic_library, &info) || !info.dli_fname)
             jl_error("could not load base module");
-        handle = dlopen(info.dli_fname, RTLD_NOW);
+        handle = dlopen(info.dli_fname, RTLD_NOW | RTLD_GLOBAL);
 #endif
         goto done;
     }
