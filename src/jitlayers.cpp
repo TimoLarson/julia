@@ -854,7 +854,7 @@ void** jl_emit_and_add_to_shadow(GlobalVariable *gv, void *gvarinit)
 
     if (shadowvar) {
         shadowvar->setInitializer(ConstantPointerNull::get(T));
-        shadowvar->setLinkage(GlobalVariable::InternalLinkage);
+        shadowvar->setLinkage(GlobalVariable::ExternalLinkage);
         addComdat(shadowvar);
         if (imaging_mode && gvarinit) {
             // make the pointer valid for future sessions
@@ -885,6 +885,7 @@ void jl_add_to_shadow(Module *m)
 #ifndef KEEP_BODIES
     if (!imaging_mode && !jl_options.outputjitbc &&
             !(jl_options.outputji && jl_options.incremental && addtolib))
+            //!(jl_options.outputji && jl_options.incremental))
         return;
 #endif
     ValueToValueMapTy VMap;
@@ -892,7 +893,7 @@ void jl_add_to_shadow(Module *m)
     for (Module::iterator I = clone->begin(), E = clone->end(); I != E; ++I) {
         Function *F = &*I;
         if (!F->isDeclaration()) {
-            F->setLinkage(Function::InternalLinkage);
+            F->setLinkage(Function::ExternalLinkage);
             addComdat(F);
         }
     }

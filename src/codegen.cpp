@@ -3450,7 +3450,7 @@ static Value *global_binding_pointer(jl_codectx_t &ctx, jl_module_t *m, jl_sym_t
             name << "delayedvar" << globalUnique++;
             Constant *initnul = V_null;
             GlobalVariable *bindinggv = new GlobalVariable(*ctx.f->getParent(), T_pjlvalue,
-                    false, GlobalVariable::InternalLinkage,
+                    false, GlobalVariable::ExternalLinkage,
                     initnul, name.str());
             Value *cachedval = ctx.builder.CreateLoad(T_pjlvalue, bindinggv);
             BasicBlock *have_val = BasicBlock::Create(jl_LLVMContext, "found"),

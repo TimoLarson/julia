@@ -649,7 +649,7 @@ void _julia_init(JL_IMAGE_SEARCH rel)
     jl_prep_sanitizers();
     void *stack_lo, *stack_hi;
     jl_init_stack_limits(1, &stack_lo, &stack_hi);
-    jl_dl_handle = jl_load_dynamic_library(NULL, JL_RTLD_DEFAULT, 1);
+    jl_dl_handle = jl_load_dynamic_library(NULL, JL_RTLD_DEFAULT | JL_RTLD_GLOBAL, 1);
 #ifdef _OS_WINDOWS_
     jl_ntdll_handle = jl_dlopen("ntdll.dll", 0); // bypass julia's pathchecking for system dlls
     jl_kernel32_handle = jl_dlopen("kernel32.dll", 0);
@@ -669,7 +669,7 @@ void _julia_init(JL_IMAGE_SEARCH rel)
     if (jl_dbghelp)
         jl_dlsym(jl_dbghelp, "SymRefreshModuleList", (void **)&hSymRefreshModuleList, 1);
 #else
-    jl_exe_handle = jl_dlopen(NULL, JL_RTLD_NOW);
+    jl_exe_handle = jl_dlopen(NULL, JL_RTLD_NOW | JL_RTLD_GLOBAL);
 #ifdef RTLD_DEFAULT
     jl_RTLD_DEFAULT_handle = RTLD_DEFAULT;
 #else
