@@ -7042,30 +7042,57 @@ extern "C" void jl_fptr_to_llvm(void *fptr, jl_code_instance_t *lam, int specsig
         // this assigns a function pointer (from loading the system image), to the function object
         std::stringstream funcName;
         if (!specsig)
-            funcName << "jsys_"; // the invoke implementation wrapper
+            funcName << "julia_"; // the invoke implementation wrapper
         else if (lam->invoke == jl_fptr_args)
-            funcName << "jsys1_";
+            funcName << "japi1_";
         else if (lam->invoke == jl_fptr_sparam)
-            funcName << "jsys3_";
+            funcName << "japi3_";
         else
             funcName << "julia_"; // it's a specsig call
         const char* unadorned_name = jl_symbol_name(lam->def->def.method->name);
+#if defined(_OS_LINUX_)
+        if (unadorned_name[0] == '@')
+            unadorned_name++;
+#endif
         funcName << unadorned_name << "_" << globalUnique++;
-        Function *f = Function::Create(jl_func_sig, Function::ExternalLinkage, funcName.str());
+
+        Function *f;
+        if (!specsig) {
+            std::stringstream funName;
+            funName << lam->functionObjectsDecls.functionObject;
+            //printf("!specsig\n");
+            //printf("funcName %s\n", funcName.str().c_str());
+            //printf("funName %s\n",  funName.str().c_str());
+            f = Function::Create(jl_func_sig, Function::ExternalLinkage, funName.str());
+        }
+        else {
+            std::stringstream funName;
+            funName << lam->functionObjectsDecls.specFunctionObject;
+            //printf("specsig\n");
+            //printf("funcName %s\n", funcName.str().c_str());
+            //printf("funName %s\n",  funName.str().c_str());
+            f = Function::Create(jl_func_sig, Function::ExternalLinkage, funName.str());
+        }
+
         add_named_global(f, fptr);
         const char **fdecl;
         if (specsig) {
             fdecl = &lam->functionObjectsDecls.specFunctionObject;
+            /*
+            //printf("f1: %s\n", *fdecl);
             if (lam->invoke == jl_fptr_args)
                 lam->functionObjectsDecls.functionObject = "jl_fptr_args";
             else if (lam->invoke == jl_fptr_sparam)
                 lam->functionObjectsDecls.functionObject = "jl_fptr_sparam";
+            */
         }
         else {
             fdecl = &lam->functionObjectsDecls.functionObject;
+            //printf("f2: %s\n", *fdecl);
         }
-        assert(!*fdecl);
-        *fdecl = strdup(f->getName().str().c_str());
+        //printf("fdecl: %s\n", *fdecl);
+        //assert(!*fdecl);
+        //*fdecl = strdup(f->getName().str().c_str());
         delete f;
     }
 }

@@ -125,6 +125,7 @@ typedef struct {
     ios_t *relocs;
     ios_t *gvar_record;
     ios_t *fptr_record;
+    ios_t *name_record;
     arraylist_t relocs_list;
     arraylist_t gctags_list;
     jl_ptls_t ptls;
@@ -783,6 +784,18 @@ static void jl_write_values(jl_serializer_state *s)
                 jl_code_instance_t *m = (jl_code_instance_t*)v;
                 jl_code_instance_t *newm = (jl_code_instance_t*)&s->s->buf[reloc_offset];
 
+                // ADDED (
+                char *functionObject = "";
+                char *specFunctionObject = "";
+                // ADDED )
+
+                // ADDED (
+                if (m->functionObjectsDecls.functionObject)
+                    functionObject = strdup(m->functionObjectsDecls.functionObject);
+                if (m->functionObjectsDecls.specFunctionObject)
+                    specFunctionObject = strdup(m->functionObjectsDecls.specFunctionObject);
+                // ADDED )
+
                 newm->invoke = NULL;
                 newm->specptr.fptr = NULL;
                 newm->functionObjectsDecls.functionObject = NULL;
@@ -809,6 +822,8 @@ static void jl_write_values(jl_serializer_state *s)
                                 fptr_id = JL_API_WITH_PARAMETERS;
                             }
                             else {
+                                ios_write(s->name_record, functionObject, strlen(functionObject) + 1);
+                                //ios_write(s->name_record, specFunctionObject, strlen(specFunctionObject) + 1);
                                 int func = jl_assign_functionID(fname);
                                 assert(func > 0);
                                 ios_ensureroom(s->fptr_record, func * sizeof(void*));
@@ -820,6 +835,8 @@ static void jl_write_values(jl_serializer_state *s)
                             }
                             fname = m->functionObjectsDecls.specFunctionObject;
                             if (fname) {
+                                //ios_write(s->name_record, functionObject, strlen(functionObject) + 1);
+                                ios_write(s->name_record, specFunctionObject, strlen(specFunctionObject) + 1);
                                 int cfunc = jl_assign_functionID(fname);
                                 assert(cfunc > 0);
                                 ios_ensureroom(s->fptr_record, cfunc * sizeof(void*));
@@ -1146,6 +1163,11 @@ static void jl_update_all_fptrs(jl_serializer_state *s)
     uintptr_t base = (uintptr_t)&s->s->buf[0];
     jl_method_instance_t **linfos = (jl_method_instance_t**)&s->fptr_record->buf[0];
     uint32_t clone_idx = 0;
+    printf("NAME:\n");
+    fflush(stdout);
+    char *name = (char*)s->name_record->buf;
+    printf("%s\n", name);
+    fflush(stdout);
     for (i = 0; i < sysimg_fvars_max; i++) {
         uintptr_t val = (uintptr_t)&linfos[i];
         uint32_t offset = load_uint32(&val);
@@ -1172,10 +1194,40 @@ static void jl_update_all_fptrs(jl_serializer_state *s)
                 break;
             }
             void *fptr = (void*)(base + offset);
+
+            // ADDED (
+            const char* unadorned_name = jl_symbol_name(codeinst->def->def.method->name);
+            char *functionObject = NULL;
+            char *specFunctionObject = NULL;
             if (specfunc)
-                codeinst->specptr.fptr = fptr;
+                specFunctionObject = name;
             else
+                functionObject = name;
+            name += strlen(name) + 1;
+            // ADDED )
+
+            //printf("%i ", specfunc);
+            //printf("'%s' ", unadorned_name);
+            //printf("'%s' ", functionObject);
+            //printf("'%s'\n", specFunctionObject);
+
+            if (specfunc) {
+                codeinst->specptr.fptr = fptr;
+                codeinst->functionObjectsDecls.specFunctionObject = specFunctionObject;
+            }
+            else {
                 codeinst->invoke = (jl_callptr_t)fptr;
+                codeinst->functionObjectsDecls.functionObject = functionObject;
+            }
+
+            /*
+            if (functionObject)
+                codeinst->functionObjectsDecls.functionObject = functionObject;
+            if (specFunctionObject)
+                codeinst->functionObjectsDecls.specFunctionObject = specFunctionObject;
+            */
+            // ADDED )
+
             jl_fptr_to_llvm(fptr, codeinst, specfunc);
         }
     }
@@ -1314,13 +1366,14 @@ static void jl_save_system_image_to_stream(ios_t *f)
     htable_reset(&backref_table, 250000);
     arraylist_new(&reinit_list, 0);
     backref_table_numel = 0;
-    ios_t sysimg, const_data, symbols, relocs, gvar_record, fptr_record;
+    ios_t sysimg, const_data, symbols, relocs, gvar_record, fptr_record, name_record;
     ios_mem(&sysimg,     1000000);
     ios_mem(&const_data,  100000);
     ios_mem(&symbols,     100000);
     ios_mem(&relocs,      100000);
     ios_mem(&gvar_record, 100000);
     ios_mem(&fptr_record, 100000);
+    ios_mem(&name_record, 100000);
     jl_serializer_state s;
     s.s = &sysimg;
     s.const_data = &const_data;
@@ -1328,6 +1381,7 @@ static void jl_save_system_image_to_stream(ios_t *f)
     s.relocs = &relocs;
     s.gvar_record = &gvar_record;
     s.fptr_record = &fptr_record;
+    s.name_record = &name_record;
     s.ptls = jl_get_ptls_states();
     arraylist_new(&s.relocs_list, 0);
     arraylist_new(&s.gctags_list, 0);
@@ -1406,6 +1460,11 @@ static void jl_save_system_image_to_stream(ios_t *f)
     ios_seek(&fptr_record, 0);
     ios_copyall(f, &fptr_record);
     ios_close(&fptr_record);
+
+    write_uint32(f, name_record.size);
+    ios_seek(&name_record, 0);
+    ios_copyall(f, &name_record);
+    ios_close(&name_record);
 
     { // step 4: record locations of special roots
         s.s = f;
@@ -1487,7 +1546,7 @@ static void jl_restore_system_image_from_stream(ios_t *f)
     JL_TIMING(SYSIMG_LOAD);
     int en = jl_gc_enable(0);
     jl_init_serializer2(0);
-    ios_t sysimg, const_data, symbols, relocs, gvar_record, fptr_record;
+    ios_t sysimg, const_data, symbols, relocs, gvar_record, fptr_record, name_record;
     jl_serializer_state s;
     s.s = NULL;
     s.const_data = &const_data;
@@ -1495,6 +1554,7 @@ static void jl_restore_system_image_from_stream(ios_t *f)
     s.relocs = &relocs;
     s.gvar_record = &gvar_record;
     s.fptr_record = &fptr_record;
+    s.name_record = &name_record;
     s.ptls = jl_get_ptls_states();
     arraylist_new(&s.relocs_list, 0);
     arraylist_new(&s.gctags_list, 0);
@@ -1529,6 +1589,11 @@ static void jl_restore_system_image_from_stream(ios_t *f)
     assert(!ios_eof(f));
     ios_static_buffer(&fptr_record, f->buf + f->bpos, sizeof_fptr_record);
     ios_skip(f, sizeof_fptr_record);
+
+    size_t sizeof_name_record = read_uint32(f);
+    assert(!ios_eof(f));
+    ios_static_buffer(&name_record, f->buf + f->bpos, sizeof_name_record);
+    ios_skip(f, sizeof_name_record);
 
     // step 2: get references to special values
     s.s = f;
@@ -1575,7 +1640,7 @@ static void jl_restore_system_image_from_stream(ios_t *f)
     jl_finalize_deserializer(&s);
     s.s = NULL;
 
-    if (0) {
+    if (1) {
         printf("sysimg size breakdown:\n"
                "     sys data: %8u\n"
                "  isbits data: %8u\n"
@@ -1583,20 +1648,23 @@ static void jl_restore_system_image_from_stream(ios_t *f)
                "    tags list: %8u\n"
                "   reloc list: %8u\n"
                "    gvar list: %8u\n"
-               "    fptr list: %8u\n",
+               "    fptr list: %8u\n"
+               "    name list: %8u\n",
             (unsigned)sizeof_sysimg,
             (unsigned)sizeof_constdata,
             (unsigned)sizeof_symbols,
             (unsigned)sizeof_tags,
             (unsigned)(sizeof_relocations - sizeof_tags),
             (unsigned)sizeof_gvar_record,
-            (unsigned)sizeof_fptr_record);
+            (unsigned)sizeof_fptr_record,
+            (unsigned)sizeof_name_record);
     }
 
     s.s = &sysimg;
     jl_init_codegen();
     jl_update_all_fptrs(&s); // fptr relocs and registration
     ios_close(&fptr_record);
+    ios_close(&name_record);
     ios_close(&sysimg);
     s.s = NULL;
 
