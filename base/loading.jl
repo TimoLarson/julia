@@ -1322,6 +1322,9 @@ function compilecache(pkg::PkgId, path::String)
         end
         # inherit permission from the source file
         chmod(cachefile, filemode(path) & 0o777)
+        aname = cachefile * ".a"
+        sname = cachefile * ".so"
+        run(`ld -shared -fPIC -o $sname --whole-archive $aname`)
     elseif p.exitcode == 125
         return PrecompilableError()
     else

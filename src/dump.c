@@ -45,6 +45,7 @@ static jl_value_t *deser_symbols[256];
 static htable_t backref_table;
 static int backref_table_numel;
 static arraylist_t backref_list;
+static arraylist_t natived_list;
 
 // list of (jl_value_t **loc, size_t pos) entries
 // for anything that was flagged by the deserializer for later
@@ -662,6 +663,8 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
         int flags = validate << 0;
         if (codeinst->invoke == jl_fptr_const_return)
             flags |= 1 << 2;
+        if (codeinst->natived)
+            flags |= 1 << 3;
         write_uint8(s->s, flags);
         jl_serialize_value(s, (jl_value_t*)codeinst->def);
         if (validate || codeinst->min_world == 0) {
@@ -674,6 +677,10 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
             jl_serialize_value(s, NULL);
             jl_serialize_value(s, NULL);
             jl_serialize_value(s, jl_any_type);
+        }
+        if (codeinst->natived) {
+            jl_serialize_value(s, codeinst->functionObject);
+            jl_serialize_value(s, codeinst->specFunctionObject);
         }
         jl_serialize_value(s, codeinst->next);
     }
@@ -1483,6 +1490,9 @@ static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl
     int flags = read_uint8(s->s);
     int validate = (flags >> 0) & 3;
     int constret = (flags >> 2) & 1;
+    int natived = (flags >> 3) & 1;
+
+    codeinst->natived = natived ? 2 : 0;
     codeinst->def = (jl_method_instance_t*)jl_deserialize_value(s, (jl_value_t**)&codeinst->def);
     jl_gc_wb(codeinst, codeinst->def);
     codeinst->inferred = jl_deserialize_value(s, &codeinst->inferred);
@@ -1494,6 +1504,21 @@ static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl
     jl_gc_wb(codeinst, codeinst->rettype);
     if (constret)
         codeinst->invoke = jl_fptr_const_return;
+    if (natived) {
+        // Restore native function names
+        codeinst->functionObject = jl_deserialize_value(s, &codeinst->functionObject);
+        jl_gc_wb(codeinst, codeinst->functionObject);
+        codeinst->specFunctionObject = jl_deserialize_value(s, &codeinst->specFunctionObject);
+        jl_gc_wb(codeinst, codeinst->specFunctionObject);
+        // Put this code instance on a list to be linked later
+        arraylist_push(&natived_list, codeinst);
+    } else {
+        codeinst->functionObject = jl_an_empty_string;
+        jl_gc_wb(codeinst, codeinst->functionObject);
+        codeinst->specFunctionObject = jl_an_empty_string;
+        jl_gc_wb(codeinst, codeinst->specFunctionObject);
+        arraylist_push(&natived_list, codeinst);
+    }
     codeinst->next = (jl_code_instance_t*)jl_deserialize_value(s, (jl_value_t**)&codeinst->next);
     jl_gc_wb(codeinst, codeinst->next);
     if (validate)
@@ -2097,13 +2122,15 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
 {
     JL_TIMING(SAVE_MODULE);
     char *tmpfname = strcat(strcpy((char *) alloca(strlen(fname)+8), fname), ".XXXXXX");
+    char *aname = strcat(strcpy((char *) alloca(strlen(fname)+2), fname), ".a");
+    char *tmpaname = strcat(strcpy((char *) alloca(strlen(fname)+8), fname), ".YYYYYY");
     ios_t f;
-    jl_array_t *mod_array = NULL, *udeps = NULL;
+    jl_array_t *mod_array = NULL, *udeps = NULL, *method_instances = NULL;
     if (ios_mkstemp(&f, tmpfname) == NULL) {
         jl_printf(JL_STDERR, "Cannot open cache file \"%s\" for writing.\n", tmpfname);
         return 1;
     }
-    JL_GC_PUSH2(&mod_array, &udeps);
+    JL_GC_PUSH3(&mod_array, &udeps, &method_instances);
     mod_array = jl_get_loaded_modules();
 
     serializer_worklist = worklist;
@@ -2149,6 +2176,21 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
     jl_collect_missing_backedges_to_mod(jl_nonfunction_mt);
 
     jl_collect_backedges(edges, targets);
+
+    method_instances = jl_alloc_vec_any(0);
+    for (i = 0; i < jl_array_len(edges); i++) {
+        jl_value_t *v = jl_array_ptr_ref(edges, i);
+        if (jl_is_method_instance(v)) {
+            jl_method_instance_t *mi = (jl_method_instance_t*)v;
+            jl_array_ptr_1d_push(method_instances, (jl_value_t*)mi);
+        }
+    }
+
+    // Native compile the method instances
+    void *native_code = jl_simple_create_native(method_instances);
+
+    // Create an archive containing these method instances
+    jl_simple_dump_native(native_code, tmpaname);
 
     jl_serializer_state s = {
         &f,
@@ -2217,6 +2259,10 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
     JL_GC_POP();
     if (jl_fs_rename(tmpfname, fname) < 0) {
         jl_printf(JL_STDERR, "Cannot write cache file \"%s\".\n", fname);
+        return 1;
+    }
+    if (jl_fs_rename(tmpaname, aname) < 0) {
+        jl_printf(JL_STDERR, "Cannot write archive file \"%s\".\n", aname);
         return 1;
     }
 
@@ -2436,6 +2482,22 @@ static void jl_recache_other(void)
     flagref_list.len = 0;
 }
 
+static void jl_link_shared_lib(const char *libpath)
+{
+    size_t i = 0;
+    void *lib = jl_dlopen(libpath, JL_RTLD_GLOBAL | JL_RTLD_DEEPBIND);
+    while (i < natived_list.len) {
+        jl_code_instance_t *codeinst = (jl_code_instance_t*)natived_list.items[i];
+        if (codeinst->functionObject != jl_an_empty_string) {
+            jl_dlsym(lib, jl_string_data(codeinst->functionObject), (void**)&(codeinst->invoke), 1);
+        }
+        if (codeinst->specFunctionObject != jl_an_empty_string) {
+            jl_dlsym(lib, jl_string_data(codeinst->specFunctionObject), (void**)&(codeinst->specptr), 1);
+        }
+        i += 1;
+    }
+}
+
 extern tracer_cb jl_newmeth_tracer;
 static int trace_method(jl_typemap_entry_t *entry, void *closure)
 {
@@ -2443,7 +2505,7 @@ static int trace_method(jl_typemap_entry_t *entry, void *closure)
     return 1;
 }
 
-static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array)
+static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array, const char *libpath)
 {
     JL_TIMING(LOAD_MODULE);
     jl_ptls_t ptls = jl_get_ptls_states();
@@ -2510,6 +2572,7 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array)
     htable_reset(&uniquing_table, 0);
     jl_insert_methods((jl_array_t*)external_methods); // hook up methods of external generic functions (needs to be after recache types)
     jl_recache_other(); // make all of the other objects identities correct (needs to be after insert methods)
+    jl_link_shared_lib(libpath);
     htable_free(&uniquing_table);
     jl_array_t *init_order = jl_finalize_deserializer(&s, tracee_list); // done with f and s (needs to be after recache)
 
@@ -2521,6 +2584,7 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array)
     serializer_worklist = NULL;
     arraylist_free(&flagref_list);
     arraylist_free(&backref_list);
+    arraylist_free(&natived_list);
     ios_close(f);
 
     jl_gc_enable_finalizers(ptls, 1); // make sure we don't run any Julia code concurrently before this point
@@ -2549,7 +2613,7 @@ JL_DLLEXPORT jl_value_t *jl_restore_incremental_from_buf(const char *buf, size_t
 {
     ios_t f;
     ios_static_buffer(&f, (char*)buf, sz);
-    return _jl_restore_incremental(&f, mod_array);
+    return _jl_restore_incremental(&f, mod_array, "trouble");
 }
 
 JL_DLLEXPORT jl_value_t *jl_restore_incremental(const char *fname, jl_array_t *mod_array)
@@ -2559,7 +2623,8 @@ JL_DLLEXPORT jl_value_t *jl_restore_incremental(const char *fname, jl_array_t *m
         return jl_get_exceptionf(jl_errorexception_type,
             "Cache file \"%s\" not found.\n", fname);
     }
-    return _jl_restore_incremental(&f, mod_array);
+    char *sname = strcat(strcpy((char *) alloca(strlen(fname)+4), fname), ".so");
+    return _jl_restore_incremental(&f, mod_array, sname);
 }
 
 // --- init ---
