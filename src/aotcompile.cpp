@@ -222,10 +222,8 @@ static const char *const common_names[256] = {
 // most are given "friendly" abbreviations
 // the remaining few will print as hex
 // e.g. mangles "llvm.a≠a$a!a##" as "llvmDOT.a≠a$aNOT.aYY.YY."
-static void makeSafeName(GlobalObject &G)
-{
-    StringRef Name = G.getName();
-    SmallVector<char, 32> SafeName;
+SmallVector<char, 42> toSafeName(StringRef Name) {
+    SmallVector<char, 42> SafeName;
     for (unsigned char c : Name.bytes()) {
         if (is_safe_char(c)) {
             SafeName.push_back(c);
@@ -244,8 +242,21 @@ static void makeSafeName(GlobalObject &G)
             SafeName.push_back('.');
         }
     }
-    if (SafeName.size() != Name.size())
-        G.setName(StringRef(SafeName.data(), SafeName.size()));
+    SafeName.push_back('\0');
+    return SafeName;
+}
+static void makeSafeName(GlobalObject &G)
+{
+    StringRef Name = G.getName();
+    auto SafeName = toSafeName(Name);
+    G.setName(StringRef(SafeName.data(), SafeName.size()));
+}
+
+jl_value_t *getSafeName(std::string name)
+{
+    StringRef Name = StringRef(name);
+    auto SafeName = toSafeName(Name);
+    return jl_pchar_to_string(SafeName.data(), SafeName.size());
 }
 
 static void jl_ci_cache_lookup(const jl_cgparams_t &cgparams, jl_method_instance_t *mi, size_t world, jl_code_instance_t **ci_out, jl_code_info_t **src_out)
@@ -282,8 +293,14 @@ static void jl_ci_cache_lookup(const jl_cgparams_t &cgparams, jl_method_instance
 // all reachable & inferrrable functions. The `policy` flag switches between the defaul
 // mode `0` and the extern mode `1`.
 extern "C" JL_DLLEXPORT
-void *jl_create_native(jl_array_t *methods, const jl_cgparams_t cgparams, int _policy)
+void *jl_create_native(jl_array_t *methods, const jl_cgparams_t cgparams, int _policy, int force_native)
 {
+    int compiling_native = 0;
+    if (force_native || jl_options.outputo || jl_options.outputbc || jl_options.outputunoptbc || jl_options.outputasm ||
+            (jl_options.incremental && jl_options.outputji)) {
+        compiling_native = 1;
+    }
+
     jl_native_code_desc_t *data = new jl_native_code_desc_t;
     jl_codegen_params_t params;
     params.params = &cgparams;
@@ -328,8 +345,32 @@ void *jl_create_native(jl_array_t *methods, const jl_cgparams_t cgparams, int _p
                     // now add it to our compilation results
                     JL_GC_PROMISE_ROOTED(codeinst->rettype);
                     jl_compile_result_t result = jl_emit_code(mi, src, codeinst->rettype, params);
-                    if (std::get<0>(result))
+                    if (std::get<0>(result)) {
+                        if (compiling_native) {
+                            auto decls = std::get<1>(result);
+                            codeinst->functionObject = getSafeName(decls.functionObject);
+                            jl_gc_wb(codeinst, codeinst->functionObject);
+                            codeinst->specFunctionObject = getSafeName(decls.specFunctionObject);
+                            jl_gc_wb(codeinst, codeinst->specFunctionObject);
+                            int mark_natived = 1;
+
+                            if (strstr(decls.functionObject.c_str(), "japi1_#open#")) {
+                                mark_natived = 0;
+                            }
+                            if (strstr(decls.specFunctionObject.c_str(), "japi1_#open#")) {
+                                mark_natived = 0;
+                            }
+                            if (strstr(decls.functionObject.c_str(), "##kw")) {
+                                mark_natived = 0;
+                            }
+                            if (strstr(decls.specFunctionObject.c_str(), "##kw")) {
+                                mark_natived = 0;
+                            }
+
+                            codeinst->natived = mark_natived;
+                        }
                         emitted[codeinst] = std::move(result);
+                    }
                 }
             }
         }
@@ -384,7 +425,12 @@ void *jl_create_native(jl_array_t *methods, const jl_cgparams_t cgparams, int _p
     for (auto &global : gvars) {
         GlobalVariable *G = cast<GlobalVariable>(clone->getNamedValue(global));
         G->setInitializer(ConstantPointerNull::get(cast<PointerType>(G->getValueType())));
-        G->setLinkage(GlobalVariable::InternalLinkage);
+        /*
+        if (G->hasGlobalUnnamedAddr() || G->canBeOmittedFromSymbolTable() || G->getName().empty() || G->getName().startswith("delayedvar") || G->getName().startswith("ccall_"))
+            G->setLinkage(GlobalVariable::InternalLinkage);
+        else
+            G->setLinkage(GlobalVariable::ExternalLinkage);
+        */
         data->jl_sysimg_gvars.push_back(G);
     }
 
@@ -402,7 +448,12 @@ void *jl_create_native(jl_array_t *methods, const jl_cgparams_t cgparams, int _p
     // (before adding the exported headers)
     for (GlobalObject &G : clone->global_objects()) {
         if (!G.isDeclaration()) {
-            G.setLinkage(Function::InternalLinkage);
+            /*
+            if (G.hasGlobalUnnamedAddr() || G.canBeOmittedFromSymbolTable() || G.getName().empty() || G.getName().startswith("delayedvar") || G.getName().startswith("ccall_"))
+                G.setLinkage(Function::InternalLinkage);
+            else
+                G.setLinkage(Function::ExternalLinkage);
+            */
             makeSafeName(G);
             addComdat(&G);
 #if defined(_OS_WINDOWS_) && defined(_CPU_X86_64_)
@@ -419,6 +470,11 @@ void *jl_create_native(jl_array_t *methods, const jl_cgparams_t cgparams, int _p
     return (void*)data;
 }
 
+extern "C" JL_DLLEXPORT
+void *jl_simple_create_native(jl_array_t *method_instances)
+{
+    return jl_create_native(method_instances, jl_default_cgparams, 0, 1);
+}
 
 static void emit_result(std::vector<NewArchiveMember> &Archive, SmallVectorImpl<char> &OS,
         StringRef Name, std::vector<std::string> &outputs)
@@ -449,6 +505,7 @@ extern "C"
 void jl_dump_native(void *native_code,
         const char *bc_fname, const char *unopt_bc_fname, const char *obj_fname,
         const char *asm_fname,
+        const char *a_fname,
         const char *sysimg_data, size_t sysimg_len)
 {
     JL_TIMING(NATIVE_DUMP);
@@ -494,19 +551,22 @@ void jl_dump_native(void *native_code,
     SmallVector<char, 128> obj_Buffer;
     SmallVector<char, 128> asm_Buffer;
     SmallVector<char, 128> unopt_bc_Buffer;
+    SmallVector<char, 128> a_Buffer;
     raw_svector_ostream bc_OS(bc_Buffer);
     raw_svector_ostream obj_OS(obj_Buffer);
     raw_svector_ostream asm_OS(asm_Buffer);
     raw_svector_ostream unopt_bc_OS(unopt_bc_Buffer);
+    raw_svector_ostream a_OS(a_Buffer);
     std::vector<NewArchiveMember> bc_Archive;
     std::vector<NewArchiveMember> obj_Archive;
     std::vector<NewArchiveMember> asm_Archive;
     std::vector<NewArchiveMember> unopt_bc_Archive;
+    std::vector<NewArchiveMember> a_Archive;
     std::vector<std::string> outputs;
 
     if (unopt_bc_fname)
         PM.add(createBitcodeWriterPass(unopt_bc_OS));
-    if (bc_fname || obj_fname || asm_fname)
+    if (bc_fname || obj_fname || asm_fname || a_fname)
         addOptimizationPasses(&PM, jl_options.opt_level, true, true);
     if (bc_fname)
         PM.add(createBitcodeWriterPass(bc_OS));
@@ -516,6 +576,9 @@ void jl_dump_native(void *native_code,
     if (asm_fname)
         if (TM->addPassesToEmitFile(PM, asm_OS, nullptr, CGFT_AssemblyFile, false))
             jl_safe_printf("ERROR: target does not support generation of object files\n");
+    if (a_fname)
+        if (TM->addPassesToEmitFile(PM, a_OS, nullptr, CGFT_ObjectFile, false))
+            jl_safe_printf("ERROR: target does not support generation of archive files\n");
 
     // Reset the target triple to make sure it matches the new target machine
     data->M->setTargetTriple(TM->getTargetTriple().str());
@@ -531,8 +594,10 @@ void jl_dump_native(void *native_code,
 
     // add metadata information
     if (imaging_mode) {
-        emit_offset_table(*data->M, data->jl_sysimg_gvars, "jl_sysimg_gvars", T_psize);
-        emit_offset_table(*data->M, data->jl_sysimg_fvars, "jl_sysimg_fvars", T_psize);
+        if (data->jl_sysimg_gvars.size() > 0)
+            emit_offset_table(*data->M, data->jl_sysimg_gvars, "jl_sysimg_gvars", T_psize);
+        if (data->jl_sysimg_fvars.size() > 0)
+            emit_offset_table(*data->M, data->jl_sysimg_fvars, "jl_sysimg_fvars", T_psize);
 
         // reflect the address of the jl_RTLD_DEFAULT_handle variable
         // back to the caller, so that we can check for consistency issues
@@ -546,7 +611,7 @@ void jl_dump_native(void *native_code,
     }
 
     // do the actual work
-    auto add_output = [&] (Module &M, StringRef unopt_bc_Name, StringRef bc_Name, StringRef obj_Name, StringRef asm_Name) {
+    auto add_output = [&] (Module &M, StringRef unopt_bc_Name, StringRef bc_Name, StringRef obj_Name, StringRef asm_Name, StringRef a_Name) {
         PM.run(M);
         if (unopt_bc_fname)
             emit_result(unopt_bc_Archive, unopt_bc_Buffer, unopt_bc_Name, outputs);
@@ -556,9 +621,11 @@ void jl_dump_native(void *native_code,
             emit_result(obj_Archive, obj_Buffer, obj_Name, outputs);
         if (asm_fname)
             emit_result(asm_Archive, asm_Buffer, asm_Name, outputs);
+        if (a_fname)
+            emit_result(a_Archive, a_Buffer, a_Name, outputs);
     };
 
-    add_output(*data->M, "unopt.bc", "text.bc", "text.o", "text.s");
+    add_output(*data->M, "unopt.bc", "text.bc", "text.o", "text.s", "text.so");
 
     std::unique_ptr<Module> sysimage(new Module("sysimage", Context));
     sysimage->setTargetTriple(data->M->getTargetTriple());
@@ -576,7 +643,7 @@ void jl_dump_native(void *native_code,
                                      GlobalVariable::ExternalLinkage,
                                      len, "jl_system_image_size"));
     }
-    add_output(*sysimage, "data.bc", "data.bc", "data.o", "data.s");
+    add_output(*sysimage, "data.bc", "data.bc", "data.so", "data.s", "data.so");
 
     object::Archive::Kind Kind = getDefaultForHost(TheTriple);
     if (unopt_bc_fname)
@@ -591,10 +658,18 @@ void jl_dump_native(void *native_code,
     if (asm_fname)
         handleAllErrors(writeArchive(asm_fname, asm_Archive, true,
                     Kind, true, false), reportWriterError);
+    if (a_fname)
+        handleAllErrors(writeArchive(a_fname, a_Archive, true,
+                    Kind, true, false), reportWriterError);
 
     delete data;
 }
 
+extern "C" JL_DLLEXPORT
+void jl_simple_dump_native(void *native_code, const char *a_fname)
+{
+    jl_dump_native(native_code, NULL, NULL, NULL, NULL, a_fname, NULL, 0);
+}
 
 void addTargetPasses(legacy::PassManagerBase *PM, TargetMachine *TM)
 {

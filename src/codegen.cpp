@@ -3350,7 +3350,11 @@ static jl_cgval_t emit_invoke(jl_codectx_t &ctx, jl_expr_t *ex, jl_value_t *rt)
                     std::string name;
                     StringRef protoname;
                     bool need_to_emit = true;
-                    if (ctx.use_cache) {
+                    if (codeinst->natived == 2 && strcmp("", jl_string_data(codeinst->specFunctionObject))) {
+                        protoname = StringRef(jl_string_data(codeinst->specFunctionObject));
+                        need_to_emit = false;
+                    }
+                    if (need_to_emit && ctx.use_cache) {
                         // optimization: emit the correct name immediately, if we know it
                         // TODO: use `emitted` map here too to try to consolidate names?
                         if (codeinst->specptr.fptr) {

@@ -312,6 +312,13 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v)
     else if (jl_typeis(v, jl_uint8_type)) {
         return;
     }
+    else if (jl_typeis(v, jl_code_instance_type)) {
+        jl_code_instance_t *code_inst = (jl_code_instance_t*)v;
+        if (code_inst->natived) {
+            jl_serialize_value(s, code_inst->functionObject);
+            jl_serialize_value(s, code_inst->specFunctionObject);
+        }
+    }
 
     void **bp = ptrhash_bp(&backref_table, v);
     if (*bp != HT_NOTFOUND) {
@@ -803,6 +810,9 @@ static void jl_write_values(jl_serializer_state *s)
                 newm->specptr.fptr = NULL;
                 int8_t fptr_id = JL_API_NULL;
                 int8_t builtin_id = 0;
+                newm->functionObject = NULL;
+                newm->specFunctionObject = NULL;
+                newm->natived = m->natived ? 2 : 0;
                 if (m->invoke == jl_fptr_const_return) {
                     fptr_id = JL_API_CONST;
                 }
@@ -1478,6 +1488,8 @@ JL_DLLEXPORT void jl_save_system_image(const char *fname)
 extern void jl_init_int32_int64_cache(void);
 extern void jl_gc_set_permalloc_region(void *start, void *end);
 
+extern void load_sys_image_into_llvm(const char *fname);
+
 // Takes in a path of the form "usr/lib/julia/sys.so" (jl_restore_system_image should be passed the same string)
 JL_DLLEXPORT void jl_preload_sysimg_so(const char *fname)
 {
@@ -1488,8 +1500,10 @@ JL_DLLEXPORT void jl_preload_sysimg_so(const char *fname)
     int is_ji = (dot && !strcmp(dot, ".ji"));
 
     // Get handle to sys.so
-    if (!is_ji) // .ji extension => load .ji file only
-        jl_set_sysimg_so(jl_load_dynamic_library(fname, JL_RTLD_LOCAL | JL_RTLD_NOW, 1));
+    if (!is_ji) { // .ji extension => load .ji file only
+        jl_set_sysimg_so(jl_load_dynamic_library(fname, JL_RTLD_GLOBAL | JL_RTLD_NOW, 1));
+        load_sys_image_into_llvm(fname);
+    }
 }
 
 // Allow passing in a module handle directly, rather than a path
