@@ -1341,6 +1341,9 @@ function compilecache(pkg::PkgId, path::String)
             rename(tmppath, cachefile; force=true)
             return cachefile
         end
+        aname = cachefile * ".a"
+        sname = cachefile * ".so"
+        run(`ld -shared -fPIC -o $sname --whole-archive $aname`)
     finally
         rm(tmppath, force=true)
     end

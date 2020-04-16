@@ -92,6 +92,7 @@ void jl_write_compiler_output(void)
                            jl_options.outputunoptbc,
                            jl_options.outputo,
                            jl_options.outputasm,
+                           NULL,
                            (const char*)s->buf, (size_t)s->size);
         }
     }
@@ -398,7 +399,7 @@ void *jl_precompile(int all)
         }
     }
     m = NULL;
-    void *native_code = jl_create_native(m2, jl_default_cgparams, 0);
+    void *native_code = jl_create_native(m2, jl_default_cgparams, 0, 0);
     JL_GC_POP();
     return native_code;
 }

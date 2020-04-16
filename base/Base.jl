@@ -359,6 +359,23 @@ include("docs/basedocs.jl")
 
 include("client.jl")
 
+# [[[ For debugging
+chipmunk_unusedGlobal = Int64(2)
+chipmunk_referencedGlobal = Int64(3)
+chipmunk_usedGlobal = Int64(4)
+chipmunk_globalWithInit = Int64(5)
+chipmunk_funLiteral(x::Int64) = 2
+chipmunk_funAddLiteral(x::Int64) = x + 1
+chipmunk_funPrecompiledGlobal(x::Int64) = chipmunk_usedGlobal
+chipmunk_funPrecompiledGlobal(Int64(1))
+chipmunk_funGetGlobal(x::Int64) = chipmunk_usedGlobal
+chipmunk_funAddGlobal(x::Int64) = x + chipmunk_usedGlobal
+chipmunk_funAddInitGlobal(x::Int64) = x + chipmunk_globalWithInit
+
+@noinline chipmunk_funOutPrecompiledGlobal(x::Int64) = chipmunk_usedGlobal
+#chipmunk_funOutPrecompiledGlobal(Int64(1))
+precompile(chipmunk_funOutPrecompiledGlobal, (Int64,))
+# ]]] For debugging
 # Documentation -- should always be included last in sysimg.
 include("docs/Docs.jl")
 using .Docs
@@ -379,6 +396,9 @@ end_base_include = time_ns()
 
 if is_primary_base_module
 function __init__()
+    # [[[ For debugging
+    chipmunk_globalWithInit = 7
+    # ]]] For debugging
     # try to ensuremake sure OpenBLAS does not set CPU affinity (#1070, #9639)
     if !haskey(ENV, "OPENBLAS_MAIN_FREE") && !haskey(ENV, "GOTOBLAS_MAIN_FREE")
         ENV["OPENBLAS_MAIN_FREE"] = "1"
