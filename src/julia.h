@@ -336,30 +336,6 @@ struct _jl_method_instance_t {
     uint8_t inInference; // flags to tell if inference is running on this object
 };
 
-// This type represents an executable operation
-typedef struct _jl_code_instance_t {
-    JL_DATA_TYPE
-    jl_method_instance_t *def; // method this is specialized from
-    struct _jl_code_instance_t *next; // pointer to the next cache entry
-
-    // world range for which this object is valid to use
-    size_t min_world;
-    size_t max_world;
-
-    // inference state cache
-    jl_value_t *rettype; // return type for fptr
-    jl_value_t *rettype_const; // inferred constant return value, or null
-    jl_value_t *inferred; // inferred jl_code_info_t, or jl_nothing, or null
-    //TODO: jl_array_t *edges; // stored information about edges from this object
-    //TODO: uint8_t absolute_max; // whether true max world is unknown
-
-    // compilation state cache
-    uint8_t isspecsig; // if specptr is a specialized function signature for specTypes->rettype
-    uint8_t precompile;  // if set, this will be added to the output system image
-    jl_callptr_t invoke; // jlcall entry point
-    jl_generic_specptr_t specptr; // private data for `jlcall entry point`
-} jl_code_instance_t;
-
 // all values are callable as Functions
 typedef jl_value_t jl_function_t;
 
@@ -673,6 +649,37 @@ extern JL_DLLEXPORT jl_value_t *jl_emptytuple JL_GLOBALLY_ROOTED;
 extern JL_DLLEXPORT jl_value_t *jl_true JL_GLOBALLY_ROOTED;
 extern JL_DLLEXPORT jl_value_t *jl_false JL_GLOBALLY_ROOTED;
 extern JL_DLLEXPORT jl_value_t *jl_nothing JL_GLOBALLY_ROOTED;
+
+// This type represents an executable operation
+typedef struct _jl_code_instance_t {
+    JL_DATA_TYPE
+    jl_method_instance_t *def; // method this is specialized from
+    struct _jl_code_instance_t *next; // pointer to the next cache entry
+
+    // world range for which this object is valid to use
+    size_t min_world;
+    size_t max_world;
+
+    // inference state cache
+    jl_value_t *rettype; // return type for fptr
+    jl_value_t *rettype_const; // inferred constant return value, or null
+    jl_value_t *inferred; // inferred jl_code_info_t, or jl_nothing, or null
+    //TODO: jl_array_t *edges; // stored information about edges from this object
+    //TODO: uint8_t absolute_max; // whether true max world is unknown
+
+    // compilation state cache
+    uint8_t isspecsig; // if specptr is a specialized function signature for specTypes->rettype
+    uint8_t precompile;  // if set, this will be added to the output system image
+    jl_callptr_t invoke; // jlcall entry point
+    jl_generic_specptr_t specptr; // private data for `jlcall entry point`
+    // (-- Added native compiled indicator and function names
+    // names of declarations in the JIT,
+    // suitable for referencing in LLVM IR
+    jl_value_t *functionObject;
+    jl_value_t *specFunctionObject;
+    uint8_t natived;
+    // --) Added native compiled indicator and function names
+} jl_code_instance_t;
 
 // some important symbols
 extern JL_DLLEXPORT jl_sym_t *jl_incomplete_sym;

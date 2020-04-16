@@ -37,6 +37,15 @@ f(x) = x03
 f(1,2)
 [][1]
 cd("complet_path\t\t$CTRL_C
+# [[[ Precompile statements for debugging
+Base.chipmunk_referencedGlobal
+Base.chipmunk_funLiteral(Int64(1))
+Base.chipmunk_funAddLiteral(Int64(1))
+Base.chipmunk_funGetGlobal(Int64(1))
+Base.chipmunk_funAddGlobal(Int64(1))
+Base.chipmunk_funAddInitGlobal(Int64(1))
+println(Int64(1))
+# ]]] Precompile statements for debugging
 """
 
 julia_exepath() = joinpath(Sys.BINDIR, Base.julia_exename())

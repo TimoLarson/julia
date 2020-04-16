@@ -542,6 +542,8 @@ CompilerResultT JuliaOJIT::CompilerT::operator()(Module &M)
     return CompilerResultT(std::move(ObjBuffer));
 }
 
+const char *sysimage_fname;
+
 JuliaOJIT::JuliaOJIT(TargetMachine &TM)
   : TM(TM),
     DL(TM.createDataLayout()),
@@ -590,6 +592,14 @@ JuliaOJIT::JuliaOJIT(TargetMachine &TM)
     std::string ErrorStr;
     if (sys::DynamicLibrary::LoadLibraryPermanently(nullptr, &ErrorStr))
         report_fatal_error("FATAL: unable to dlopen self\n" + ErrorStr);
+    if (sys::DynamicLibrary::LoadLibraryPermanently(sysimage_fname, &ErrorStr))
+        report_fatal_error("FATAL: unable to dlopen system image\n" + ErrorStr);
+}
+
+extern "C" JL_DLLEXPORT
+void load_sys_image_into_llvm(const char *fname) {
+    sysimage_fname = (const char *)malloc(strlen(fname) + 1);
+    strcpy((char*)sysimage_fname, fname);
 }
 
 void JuliaOJIT::addGlobalMapping(StringRef Name, uint64_t Addr)
