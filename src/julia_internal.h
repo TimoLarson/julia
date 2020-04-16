@@ -612,10 +612,12 @@ JL_DLLEXPORT jl_value_t *jl_dump_fptr_asm(uint64_t fptr, int raw_mc, const char*
 JL_DLLEXPORT jl_value_t *jl_dump_llvm_asm(void *F, const char* asm_variant, const char *debuginfo);
 JL_DLLEXPORT jl_value_t *jl_dump_function_ir(void *f, char strip_ir_metadata, char dump_module, const char *debuginfo);
 
-void *jl_create_native(jl_array_t *methods, const jl_cgparams_t cgparams, int policy);
+void *jl_create_native(jl_array_t *methods, const jl_cgparams_t cgparams, int policy, int force_native);
+void *jl_simple_create_native(jl_array_t *method_instances);
 void jl_dump_native(void *native_code,
-        const char *bc_fname, const char *unopt_bc_fname, const char *obj_fname, const char *asm_fname,
+        const char *bc_fname, const char *unopt_bc_fname, const char *obj_fname, const char *asm_fname, const char *so_fname,
         const char *sysimg_data, size_t sysimg_len);
+void jl_simple_dump_native(void *native_code, const char *so_fname);
 int32_t jl_get_llvm_gv(void *native_code, jl_value_t *p) JL_NOTSAFEPOINT;
 void jl_get_function_id(void *native_code, jl_code_instance_t *ncode,
         int32_t *func_idx, int32_t *specfunc_idx);

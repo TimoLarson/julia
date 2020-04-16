@@ -322,6 +322,11 @@ static inline std::vector<T*> consume_gv(Module &M, const char *name)
     // Get information about sysimg export functions from the two global variables.
     // Strip them from the Module so that it's easier to handle the uses.
     GlobalVariable *gv = M.getGlobalVariable(name);
+    if (!gv) {
+        return std::vector<T*>(0);
+        std::vector<T*> res(0);
+        return res;
+    }
     assert(gv && gv->hasInitializer());
     auto *ary = cast<ConstantArray>(gv->getInitializer());
     unsigned nele = ary->getNumOperands();
@@ -872,6 +877,8 @@ Constant *CloneCtx::get_ptrdiff32(Constant *ptr, Constant *base) const
 template<typename T>
 Constant *CloneCtx::emit_offset_table(const std::vector<T*> &vars, StringRef name) const
 {
+    if (vars.empty())
+        return NULL;
     assert(!vars.empty());
     add_comdat(GlobalAlias::create(T_size, 0, GlobalVariable::ExternalLinkage,
                                    name + "_base",
