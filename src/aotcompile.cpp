@@ -368,7 +368,7 @@ void *jl_create_native(jl_array_t *methods, const jl_cgparams_t cgparams, int _p
     for (auto &global : gvars) {
         GlobalVariable *G = cast<GlobalVariable>(clone->getNamedValue(global));
         G->setInitializer(ConstantPointerNull::get(cast<PointerType>(G->getValueType())));
-        G->setLinkage(GlobalVariable::InternalLinkage);
+        G->setLinkage(GlobalVariable::ExternalLinkage);
         data->jl_sysimg_gvars.push_back(G);
     }
 
@@ -386,7 +386,7 @@ void *jl_create_native(jl_array_t *methods, const jl_cgparams_t cgparams, int _p
     // (before adding the exported headers)
     for (GlobalObject &G : clone->global_objects()) {
         if (!G.isDeclaration()) {
-            G.setLinkage(Function::InternalLinkage);
+            G.setLinkage(Function::ExternalLinkage);
             makeSafeName(G);
             addComdat(&G);
 #if defined(_OS_WINDOWS_) && defined(_CPU_X86_64_)
