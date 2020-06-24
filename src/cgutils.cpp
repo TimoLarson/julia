@@ -222,6 +222,8 @@ static Value *get_gc_root_for(const jl_cgval_t &x)
 // --- emitting pointers directly into code ---
 
 
+std::string getStdSafeName(std::string);
+
 static inline Constant *literal_static_pointer_val(const void *p, Type *T = T_pjlvalue);
 
 static Value *julia_pgv(jl_codectx_t &ctx, const char *cname, void *addr)
@@ -229,6 +231,10 @@ static Value *julia_pgv(jl_codectx_t &ctx, const char *cname, void *addr)
     // emit a GlobalVariable for a jl_value_t named "cname"
     // store the name given so we can reuse it (facilitating merging later)
     // so first see if there already is a GlobalVariable for this address
+    /*
+    if (strstr(cname, "chipmunk_usedGlobal"))
+        printf("==> julia_pgv() name=%s no globalname\n", cname);
+    */
     GlobalVariable* &gv = ctx.global_targets[addr];
     Module *M = jl_Module;
     StringRef localname;
@@ -236,6 +242,8 @@ static Value *julia_pgv(jl_codectx_t &ctx, const char *cname, void *addr)
     if (!gv) {
         raw_string_ostream(gvname) << cname << ctx.global_targets.size();
         localname = StringRef(gvname);
+        //if (strstr(cname, "chipmunk"))
+        //    printf("|> julia_pgv() creating: %s\n", gvname..c_str());
     }
     else {
         localname = gv->getName();
@@ -248,6 +256,46 @@ static Value *julia_pgv(jl_codectx_t &ctx, const char *cname, void *addr)
                                 NULL, localname);
     assert(localname == gv->getName());
     assert(!gv->hasInitializer());
+    return gv;
+}
+
+static Value *julia_pgv(jl_codectx_t &ctx, const char *cname, void *addr, jl_value_t *globalname)
+{
+    if (strstr(cname, "chipmunk_usedGlobal")) {
+        printf("==> julia_pgv() name=%s globalname=%s\n",
+                cname, globalname ? jl_string_data(globalname) : "null");
+    }
+    // first see if there already is a GlobalVariable for this address
+    GlobalVariable* &gv = ctx.global_targets[addr];
+    Module *M = jl_Module;
+    StringRef localname;
+    std::string gvname;
+    if (!gv) {
+        if (globalname && globalname != jl_an_empty_string) {
+            // otherwise emit a new GlobalVariable for a jl_value_t
+            // with a pre-existing name
+            gv = new GlobalVariable(*M, T_pjlvalue,
+                                    false, GlobalVariable::ExternalLinkage,
+                                    NULL, std::string(jl_string_data(globalname), jl_string_len(globalname)));
+        } else {
+            // otherwise emit a new GlobalVariable for a jl_value_t named "cname"
+            raw_string_ostream(gvname) << cname << ctx.global_targets.size();
+            localname = StringRef(gvname);
+            // no existing GlobalVariable, create one and store it
+            gv = new GlobalVariable(*M, T_pjlvalue,
+                                    false, GlobalVariable::ExternalLinkage,
+                                    NULL, getStdSafeName(gvname));
+        }
+    }
+    else if (gv->getParent() != M) {
+        // re-use the same name, but move it to the new module
+        // this will help simplify merging them later
+        gv = prepare_global_in(M, gv);
+    }
+    if (strstr(cname, "chipmunk_usedGlobal")) {
+        printf("--> julia_pgv() mod=%s name=%s globalname=%s\n",
+                jl_symbol_name(ctx.module->name), cname, gv->getName().str().c_str());
+    }
     return gv;
 }
 
@@ -277,6 +325,34 @@ static Value *julia_pgv(jl_codectx_t &ctx, const char *prefix, jl_sym_t *name, j
         parent = parent->parent;
     }
     return julia_pgv(ctx, fullname, addr);
+}
+
+static Value *julia_pgv(jl_codectx_t &ctx, const char *prefix, jl_sym_t *name, jl_module_t *mod, void *addr, jl_value_t *globalname)
+{
+    // emit a GlobalVariable for a jl_value_t, using the prefix, name, and module to
+    // to create a readable name of the form prefixModA.ModB.name
+    size_t len = strlen(jl_symbol_name(name)) + strlen(prefix) + 1;
+    jl_module_t *parent = mod, *prev = NULL;
+    while (parent != NULL && parent != prev) {
+        len += strlen(jl_symbol_name(parent->name))+1;
+        prev = parent;
+        parent = parent->parent;
+    }
+    char *fullname = (char*)alloca(len);
+    strcpy(fullname, prefix);
+    len -= strlen(jl_symbol_name(name)) + 1;
+    strcpy(fullname + len, jl_symbol_name(name));
+    parent = mod;
+    prev = NULL;
+    while (parent != NULL && parent != prev) {
+        size_t part = strlen(jl_symbol_name(parent->name)) + 1;
+        strcpy(fullname + len - part, jl_symbol_name(parent->name));
+        fullname[len - 1] = '.';
+        len -= part;
+        prev = parent;
+        parent = parent->parent;
+    }
+    return julia_pgv(ctx, fullname, addr, globalname);
 }
 
 static JuliaVariable *julia_const_gv(jl_value_t *val);
@@ -411,7 +487,7 @@ static Value *literal_pointer_val(jl_codectx_t &ctx, jl_binding_t *p)
     if (!imaging_mode)
         return literal_static_pointer_val(p);
     // bindings are prefixed with jl_bnd#
-    Value *pgv = julia_pgv(ctx, "jl_bnd#", p->name, p->owner, p);
+    Value *pgv = julia_pgv(ctx, "jl_bnd#", p->name, p->owner, p, p->globalname);
     return tbaa_decorate(tbaa_const, maybe_mark_load_dereferenceable(
             ctx.builder.CreateLoad(T_pjlvalue, pgv), false,
             sizeof(jl_binding_t), alignof(jl_binding_t)));
@@ -445,16 +521,41 @@ static Value *julia_binding_gv(jl_codectx_t &ctx, Value *bv)
     return ctx.builder.CreateInBoundsGEP(bv, offset);
 }
 
+GlobalVariable *getGOTGlobal(jl_codectx_t &ctx, GlobalVariable *G) {
+    Module *M = jl_Module;
+    // Copy the GlobalVariable, but without the initializer, so it becomes a declaration
+    GlobalVariable *got_proto = new GlobalVariable(*M, G->getType()->getElementType(),
+            G->isConstant(), GlobalVariable::ExternalLinkage,
+            nullptr, G->getName(), nullptr, G->getThreadLocalMode());
+    got_proto->copyAttributesFrom(G);
+    // Mark unnamed to trigger LLVM to make this global variable declaration
+    // point at a GOT (Global Offset Table) entry
+    got_proto->setUnnamedAddr(GlobalValue::UnnamedAddr::Local);
+    return got_proto;
+}
+
 static Value *julia_binding_gv(jl_codectx_t &ctx, jl_binding_t *b)
 {
-    // emit a literal_pointer_val to the value field of a jl_binding_t
-    // binding->value are prefixed with *
     Value *bv;
-    if (imaging_mode)
+    if (imaging_mode) {
+        Value *v = julia_pgv(ctx, "*", b->name, b->owner, b, b->globalname);
+        if (b->globalname && b->globalname != jl_an_empty_string) {
+            std::string globalname = ((GlobalVariable*)v)->getName().str();
+            b->globalname = jl_pchar_to_string(globalname.data(), globalname.size());
+            //jl_gc_wb(b, b->globalname);
+
+            // protect globalname from garbage collection
+            std::string gc_globalname;
+            raw_string_ostream(gc_globalname) << "gc_" << ctx.global_targets.size();
+            jl_set_global(jl_main_module, jl_symbol(gc_globalname.c_str()), b->globalname);
+            jl_gc_wb_buf(b->owner, b, sizeof(jl_binding_t));
+        }
+
         bv = emit_bitcast(ctx,
                 tbaa_decorate(tbaa_const,
-                              ctx.builder.CreateLoad(T_pjlvalue, julia_pgv(ctx, "*", b->name, b->owner, b))),
+                              ctx.builder.CreateLoad(T_pjlvalue, v)),
                 T_pprjlvalue);
+    }
     else
         bv = ConstantExpr::getBitCast(literal_static_pointer_val(b), T_pprjlvalue);
     return julia_binding_gv(ctx, bv);

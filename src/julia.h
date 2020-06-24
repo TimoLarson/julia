@@ -450,6 +450,7 @@ typedef struct {
     jl_sym_t *name;
     jl_value_t *value;
     jl_value_t *globalref;  // cached GlobalRef for this binding
+    jl_value_t *globalname;
     struct _jl_module_t *owner;  // for individual imported bindings
     uint8_t constp;
     uint8_t exportp:1;

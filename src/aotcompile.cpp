@@ -224,6 +224,9 @@ static const char *const common_names[256] = {
 // e.g. mangles "llvm.a≠a$a!a##" as "llvmDOT.a≠a$aNOT.aYY.YY."
 SmallVector<char, 42> toSafeName(StringRef Name) {
     SmallVector<char, 42> SafeName;
+    SafeName.push_back('s');
+    SafeName.push_back('N');
+    SafeName.push_back('_');
     for (unsigned char c : Name.bytes()) {
         if (is_safe_char(c)) {
             SafeName.push_back(c);
@@ -242,7 +245,7 @@ SmallVector<char, 42> toSafeName(StringRef Name) {
             SafeName.push_back('.');
         }
     }
-    SafeName.push_back('\0');
+    //SafeName.push_back('\0');
     return SafeName;
 }
 static void makeSafeName(GlobalObject &G)
@@ -250,6 +253,13 @@ static void makeSafeName(GlobalObject &G)
     StringRef Name = G.getName();
     auto SafeName = toSafeName(Name);
     G.setName(StringRef(SafeName.data(), SafeName.size()));
+}
+
+std::string getStdSafeName(std::string name)
+{
+    StringRef Name = StringRef(name);
+    auto SafeName = toSafeName(Name);
+    return std::string(SafeName.data(), SafeName.size());
 }
 
 jl_value_t *getSafeName(std::string name)
@@ -348,9 +358,9 @@ void *jl_create_native(jl_array_t *methods, const jl_cgparams_t cgparams, int _p
                     if (std::get<0>(result)) {
                         if (compiling_native) {
                             auto decls = std::get<1>(result);
-                            codeinst->functionObject = getSafeName(decls.functionObject);
+                            codeinst->functionObject = jl_pchar_to_string(decls.functionObject.data(), decls.functionObject.size());
                             jl_gc_wb(codeinst, codeinst->functionObject);
-                            codeinst->specFunctionObject = getSafeName(decls.specFunctionObject);
+                            codeinst->specFunctionObject = jl_pchar_to_string(decls.specFunctionObject.data(), decls.specFunctionObject.size());
                             jl_gc_wb(codeinst, codeinst->specFunctionObject);
                             int mark_natived = 1;
 
@@ -450,7 +460,7 @@ void *jl_create_native(jl_array_t *methods, const jl_cgparams_t cgparams, int _p
                 G.setLinkage(Function::InternalLinkage);
             else
                 G.setLinkage(Function::ExternalLinkage);
-            makeSafeName(G);
+            //makeSafeName(G);
             addComdat(&G);
 #if defined(_OS_WINDOWS_) && defined(_CPU_X86_64_)
             // Add unwind exception personalities to functions to handle async exceptions
@@ -469,6 +479,9 @@ void *jl_create_native(jl_array_t *methods, const jl_cgparams_t cgparams, int _p
 extern "C" JL_DLLEXPORT
 void *jl_simple_create_native(jl_array_t *method_instances)
 {
+    printf("::> imaging_mode: %i\n", imaging_mode);
+    imaging_mode = 1;
+    printf("::> imaging_mode: %i\n", imaging_mode);
     return jl_create_native(method_instances, jl_default_cgparams, 0, 1);
 }
 

@@ -273,6 +273,10 @@ static void jl_serialize_module(jl_serializer_state *s, jl_module_t *m)
             jl_serialize_value(s, b->name);
             jl_serialize_value(s, b->value);
             jl_serialize_value(s, b->globalref);
+            if (strstr(jl_symbol_name(b->name), "chipmunk"))
+                printf("->serialize %s %s\n", jl_symbol_name(b->name),
+                        b->globalname ? jl_string_data(b->globalname) : "null");
+            jl_serialize_value(s, b->globalname);
             jl_serialize_value(s, b->owner);
         }
     }
@@ -514,6 +518,7 @@ static void jl_write_module(jl_serializer_state *s, uintptr_t item, jl_module_t 
             write_pointerfield(s, (jl_value_t*)b->name);
             write_pointerfield(s, b->value);
             write_pointerfield(s, b->globalref);
+            write_pointerfield(s, b->globalname);
             write_pointerfield(s, (jl_value_t*)b->owner);
             size_t flag_offset = offsetof(jl_binding_t, owner) + sizeof(b->owner);
             ios_write(s->s, (char*)b + flag_offset, sizeof(*b) - flag_offset);
@@ -1268,6 +1273,26 @@ static void jl_reinit_item(jl_value_t *v, int how)
                 b += 1;
                 nbindings -= 1;
             }
+
+            if (strstr(jl_symbol_name(mod->name), "Base")) {
+                printf("---- %s %zu\n", jl_symbol_name(mod->name), mod->bindings.size);
+                void **table = mod->bindings.table;
+                for (int i = 1; i < mod->bindings.size; i += 2) {
+                    if (table[i] != HT_NOTFOUND) {
+                        jl_binding_t *bind = (jl_binding_t*)table[i];
+                        if (strstr(jl_symbol_name(bind->name), "chipmunk"))
+                            printf("    %s: v=%p gr=%p gn=%p o=%p %s\n",
+                                    jl_symbol_name(bind->name),
+                                    bind->value,
+                                    bind->globalref,
+                                    bind->globalname,
+                                    bind->owner,
+                                    bind->globalname ? jl_string_data(bind->globalname) : "\xFE");
+                    }
+                }
+                printf("---- \n");
+            }
+
             if (mod->usings.items != &mod->usings._space[0]) {
                 void **newitems = (void**)malloc_s(mod->usings.max * sizeof(void*));
                 memcpy(newitems, mod->usings.items, mod->usings.len * sizeof(void*));

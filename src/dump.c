@@ -360,6 +360,7 @@ static void jl_serialize_module(jl_serializer_state *s, jl_module_t *m)
             else
                 jl_serialize_value(s, e);
             jl_serialize_value(s, b->globalref);
+            jl_serialize_value(s, b->globalname);
             jl_serialize_value(s, b->owner);
             write_int8(s->s, (b->deprecated<<3) | (b->constp<<2) | (b->exportp<<1) | (b->imported));
         }
@@ -1560,6 +1561,8 @@ static jl_value_t *jl_deserialize_value_module(jl_serializer_state *s) JL_GC_DIS
         if (b->value != NULL) jl_gc_wb(m, b->value);
         b->globalref = jl_deserialize_value(s, &b->globalref);
         if (b->globalref != NULL) jl_gc_wb(m, b->globalref);
+        b->globalname = jl_deserialize_value(s, &b->globalname);
+        if (b->globalname != NULL) jl_gc_wb(m, b->globalname);
         b->owner = (jl_module_t*)jl_deserialize_value(s, (jl_value_t**)&b->owner);
         if (b->owner != NULL) jl_gc_wb(m, b->owner);
         int8_t flags = read_int8(s->s);

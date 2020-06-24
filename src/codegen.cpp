@@ -233,6 +233,9 @@ static DISubroutineType *jl_di_func_sig;
 static DISubroutineType *jl_di_func_null_sig;
 
 
+// Move me
+std::string getStdSafeName(std::string name);
+
 // constants
 static Constant *V_null;
 static bool type_is_ghost(Type *ty)
@@ -1086,6 +1089,9 @@ static inline GlobalVariable *prepare_global_in(Module *M, GlobalVariable *G)
                 G->isConstant(), GlobalVariable::ExternalLinkage,
                 nullptr, G->getName(), nullptr, G->getThreadLocalMode());
         proto->copyAttributesFrom(G);
+        // Mark unnamed to trigger LLVM to make this global variable declaration
+        // point at a GOT (Global Offset Table) entry
+        proto->setUnnamedAddr(GlobalValue::UnnamedAddr::Local);
         // DLLImport only needs to be set for the shadow module
         // it just gets annoying in the JIT
         proto->setDLLStorageClass(GlobalValue::DefaultStorageClass);
@@ -1124,6 +1130,51 @@ static GlobalVariable *get_pointer_to_constant(jl_codegen_params_t &emission_con
     assert(localname == gv->getName());
     assert(val == gv->getInitializer());
     return gv;
+}
+
+/*
+@external_global = external constant i32
+
+; LLVM treats this global variable as a "GOT equivalent", and will replace
+; references to @got.external_global with GOT relocations for external_global
+; when possible.
+@got.external_global = private unnamed_addr constant i32* @external_global
+
+@external_relative_reference = constant i32 trunc (i64 sub
+  (i64 ptrtoint (i32** @got.external_global to i64),
+   i64 ptrtoint (i32* @external_relative_reference to i64)) to i32)
+*/
+
+GlobalVariable *test_global(Constant *val, StringRef name, Module &M)
+{
+    // Normal external global variable
+    GlobalVariable *extern_gv = new GlobalVariable(
+            M,
+            val->getType(),
+            true,
+            GlobalVariable::ExternalLinkage,
+            val,
+            name);
+
+    // GOT (Global Offset Table) entry for external global variable
+    // Unnamed address to trigger LLVM to turn this into a GOT entry
+    GlobalVariable *got_gv = new GlobalVariable(
+            M,
+            extern_gv->getType(),
+            true,
+            GlobalVariable::PrivateLinkage,
+            extern_gv);
+    got_gv->setUnnamedAddr(GlobalValue::UnnamedAddr::Local);
+
+    // Relative reference to GOT (Global Offset Table) entry
+    GlobalVariable *rel_gv = new GlobalVariable(
+            M,
+            got_gv->getType(),
+            true,
+            GlobalVariable::PrivateLinkage,
+            got_gv);
+
+    return rel_gv;
 }
 
 static AllocaInst *emit_static_alloca(jl_codectx_t &ctx, Type *lty)
@@ -3356,6 +3407,7 @@ static jl_cgval_t emit_invoke(jl_codectx_t &ctx, jl_expr_t *ex, jl_value_t *rt)
                     }
                     if (need_to_emit) {
                         raw_string_ostream(name) << (specsig ? "j_" : "j1_") << name_from_method_instance(mi) << "_" << globalUnique++;
+                        name = getStdSafeName(name);
                         protoname = StringRef(name);
                     }
                     jl_returninfo_t::CallingConv cc = jl_returninfo_t::CallingConv::Boxed;
@@ -4436,7 +4488,7 @@ static Function *emit_tojlinvoke(jl_code_instance_t *codeinst, Module *M, jl_cod
     raw_string_ostream(name) << "tojlinvoke" << globalUnique++;
     Function *f = Function::Create(jl_func_sig,
             GlobalVariable::PrivateLinkage,
-            name, M);
+            getStdSafeName(name), M);
     jl_init_function(f);
     f->addFnAttr(Thunk);
     //f->setAlwaysInline();
@@ -4636,7 +4688,7 @@ static Function* gen_cfun_wrapper(
     }
     Function *cw = Function::Create(functype,
             GlobalVariable::ExternalLinkage,
-            funcName, M);
+            getStdSafeName(funcName), M);
     cw->setAttributes(attributes);
     jl_init_function(cw);
 
@@ -4949,7 +5001,7 @@ static Function* gen_cfun_wrapper(
         if (age_ok) {
             funcName += "_gfthunk";
             Function *gf_thunk = Function::Create(returninfo.decl->getFunctionType(),
-                    GlobalVariable::InternalLinkage, funcName, M);
+                    GlobalVariable::InternalLinkage, getStdSafeName(funcName), M);
             gf_thunk->setAttributes(returninfo.decl->getAttributes());
             jl_init_function(gf_thunk);
             // build a  specsig -> jl_apply_generic converter thunk
@@ -5041,7 +5093,7 @@ static Function* gen_cfun_wrapper(
         Function *cw_make = Function::Create(
                 FunctionType::get(T_pint8, { T_pint8, T_ppjlvalue }, false),
                 GlobalVariable::ExternalLinkage,
-                funcName, M);
+                getStdSafeName(funcName), M);
         jl_init_function(cw_make);
         BasicBlock *b0 = BasicBlock::Create(jl_LLVMContext, "top", cw_make);
         IRBuilder<> cwbuilder(b0);
@@ -5686,6 +5738,7 @@ static std::pair<std::unique_ptr<Module>, jl_llvm_functions_t>
 #endif
     funcName << unadorned_name << "_" << globalUnique++;
     declarations.specFunctionObject = funcName.str();
+    //declarations.specFunctionObject = getStdSafeName(funcName.str());
 
     // allocate Function declarations and wrapper objects
     Module *M = new Module(ctx.name, jl_LLVMContext);
@@ -5725,7 +5778,7 @@ static std::pair<std::unique_ptr<Module>, jl_llvm_functions_t>
 
         std::string wrapName;
         raw_string_ostream(wrapName) << "jfptr_" << unadorned_name << "_" << globalUnique++;
-        declarations.functionObject = wrapName;
+        declarations.functionObject = getStdSafeName(wrapName);
         (void)gen_invoke_wrapper(lam, jlrettype, returninfo, retarg, declarations.functionObject, M, ctx.emission_context);
     }
     else {

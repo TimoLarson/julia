@@ -110,6 +110,7 @@ static jl_binding_t *new_binding(jl_sym_t *name)
     b->value = NULL;
     b->owner = NULL;
     b->globalref = NULL;
+    b->globalname = NULL;
     b->constp = 0;
     b->exportp = 0;
     b->imported = 0;
@@ -268,11 +269,16 @@ static jl_binding_t *using_resolve_binding(jl_module_t *m JL_PROPAGATES_ROOT, jl
 // get binding for reading. might return NULL for unbound.
 static jl_binding_t *jl_get_binding_(jl_module_t *m, jl_sym_t *var, modstack_t *st)
 {
+    int chip = strstr(jl_symbol_name(var), "chipmunk_usedGlobal") != 0;
+    if (chip)
+        printf("jl_get_binding_() A mod: %s var: %s\n", jl_symbol_name(m->name), jl_symbol_name(var));
     modstack_t top = { m, st };
     modstack_t *tmp = st;
     while (tmp != NULL) {
         if (tmp->m == m) {
             // import cycle without finding actual location
+            if (chip)
+                printf("jl_get_binding_() B var: %s\n", jl_symbol_name(var));
             return NULL;
         }
         tmp = tmp->prev;
@@ -280,6 +286,8 @@ static jl_binding_t *jl_get_binding_(jl_module_t *m, jl_sym_t *var, modstack_t *
     JL_LOCK(&m->lock);
     jl_binding_t *b = _jl_get_module_binding(m, var);
     if (b == HT_NOTFOUND || b->owner == NULL) {
+        if (chip)
+            printf("Not found yet\n");
         b = using_resolve_binding(m, var, &top, 1);
         JL_UNLOCK(&m->lock);
         if (b != NULL) {
@@ -287,13 +295,42 @@ static jl_binding_t *jl_get_binding_(jl_module_t *m, jl_sym_t *var, modstack_t *
             // from changing, for example if this var is assigned to
             // later.
             module_import_(m, b->owner, var, 0);
+            if (chip)
+                printf("jl_get_binding_() b var: %s\n", jl_symbol_name(var));
             return b;
         }
+        if (chip)
+            printf("jl_get_binding_() C var: %s\n", jl_symbol_name(var));
         return NULL;
     }
     JL_UNLOCK(&m->lock);
-    if (b->owner != m)
+    if (b->owner != m) {
+        if (chip)
+            printf("jl_get_binding_() D var: %s\n", jl_symbol_name(var));
         return jl_get_binding_(b->owner, var, &top);
+    }
+    if (chip) {
+
+        printf("jl_get_binding_() d var: %s %s\n", jl_symbol_name(var), jl_symbol_name(b->name));
+        /*
+        printf("---- %zu\n", m->bindings.size);
+        void **table = m->bindings.table;
+        for (int i = 1; i < m->bindings.size; i += 2) {
+            if (table[i] != HT_NOTFOUND) {
+                jl_binding_t *b = (jl_binding_t*)table[i];
+                if (strstr(jl_symbol_name(b->name), "chipmunk"))
+                    printf("(%s:%s)",
+                            jl_symbol_name(b->name),
+                            b->globalname ? jl_string_data(b->globalname) : "\xFE");
+            }
+        }
+        printf("\n----\n");
+        */
+        if (b->globalname) {
+              printf("    globalname: \"%s\"\n", jl_string_data(b->globalname));
+        } else
+            printf("    globalname: null\n");
+    }
     return b;
 }
 
