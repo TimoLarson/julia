@@ -39,13 +39,15 @@ namespace {
 
 struct LowerPTLS: public ModulePass {
     static char ID;
-    LowerPTLS(bool imaging_mode=false)
+    LowerPTLS(bool imaging_mode=false, bool lib_mode=false)
         : ModulePass(ID),
-          imaging_mode(imaging_mode)
+          imaging_mode(imaging_mode),
+          lib_mode(lib_mode)
     {}
 
 private:
     const bool imaging_mode;
+    const bool lib_mode;
     Module *M;
     Function *ptls_getter;
     LLVMContext *ctx;
@@ -144,11 +146,23 @@ GlobalVariable *LowerPTLS::create_aliased_global(Type *T, StringRef name) const
     // the address is visible externally but LLVM can still assume that the
     // address of this variable doesn't need dynamic relocation
     // (can be accessed with a single PC-rel load).
-    auto GV = new GlobalVariable(*M, T, false, GlobalVariable::InternalLinkage,
-                                 Constant::getNullValue(T), name + ".real");
-    add_comdat(GlobalAlias::create(T, 0, GlobalVariable::ExternalLinkage,
-                                   name, GV, M));
-    return GV;
+    //if (!lib_mode) {
+        auto GV = new GlobalVariable(*M, T, false, GlobalVariable::InternalLinkage,
+                                     Constant::getNullValue(T), name + ".real");
+        add_comdat(GlobalAlias::create(T, 0, GlobalVariable::ExternalLinkage,
+                                       name, GV, M));
+        return GV;
+    /*
+    } else {
+        auto GVExt = new GlobalVariable(*M, T, false, GlobalVariable::ExternalLinkage,
+                                     NULL, name);
+        auto GVGot = new GlobalVariable(*M, T->getPointerTo(), true, GlobalVariable::PrivateLinkage,
+                                     GVExt, name + ".got");
+        GVGot->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+        printf("there!\n");
+        return GVGot;
+    }
+    */
 }
 
 template<typename T>
@@ -186,9 +200,25 @@ void LowerPTLS::fix_ptls_use(CallInst *ptlsStates)
             //     ptls = tp + offset;
             // else
             //     ptls = getter();
+            //printf("ptls_offset name:%s\n", ptls_offset->getName().str().c_str());
+            //printf("ptls_slot name:%s\n", ptls_slot->getName().str().c_str());
             auto offset = new LoadInst(T_size, ptls_offset, "", false, ptlsStates);
             offset->setMetadata(llvm::LLVMContext::MD_tbaa, tbaa_const);
             offset->setMetadata(llvm::LLVMContext::MD_invariant_load, MDNode::get(*ctx, None));
+            /*
+            if (lib_mode) {
+                auto getter = new LoadInst(T_ptls_getter, ptls_slot, "", false, ptlsStates);
+                getter->setMetadata(llvm::LLVMContext::MD_tbaa, tbaa_const);
+                getter->setMetadata(llvm::LLVMContext::MD_invariant_load, MDNode::get(*ctx, None));
+                //ptlsStates->setCalledFunction(ptlsStates->getFunctionType(), getter);
+                //ptlsStates->setCalledFunction(ptlsStates->getFunctionType(), ptls_offset);
+                //ptlsStates->setCalledFunction(ptlsStates->getFunctionType(), ptls_slot);
+                ptlsStates->setCalledFunction((Function*)ptls_slot);
+                set_ptls_attrs(ptlsStates);
+                printf("here!\n");
+                return;
+            }
+            */
             auto cmp = new ICmpInst(ptlsStates, CmpInst::ICMP_NE, offset,
                                     Constant::getNullValue(offset->getType()));
             MDBuilder MDB(*ctx);
@@ -263,8 +293,10 @@ bool LowerPTLS::runOnModule(Module &_M)
         assert(call->getCalledValue() == ptls_getter);
         fix_ptls_use(call);
     }
-    assert(ptls_getter->use_empty());
-    ptls_getter->eraseFromParent();
+    if (!lib_mode) {
+        assert(ptls_getter->use_empty());
+        ptls_getter->eraseFromParent();
+    }
     return true;
 }
 
@@ -276,12 +308,12 @@ static RegisterPass<LowerPTLS> X("LowerPTLS", "LowerPTLS Pass",
 
 } // anonymous namespace
 
-Pass *createLowerPTLSPass(bool imaging_mode)
+Pass *createLowerPTLSPass(bool imaging_mode, bool lib_mode)
 {
-    return new LowerPTLS(imaging_mode);
+    return new LowerPTLS(imaging_mode, lib_mode);
 }
 
 extern "C" JL_DLLEXPORT void LLVMExtraAddLowerPTLSPass(LLVMPassManagerRef PM, LLVMBool imaging_mode)
 {
-    unwrap(PM)->add(createLowerPTLSPass(imaging_mode));
+    unwrap(PM)->add(createLowerPTLSPass(imaging_mode, false));
 }

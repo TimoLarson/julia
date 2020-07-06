@@ -369,6 +369,8 @@ chipmunk_funPrecompiledGlobal(x::Int64) = chipmunk_usedGlobal
 chipmunk_funPrecompiledGlobal(Int64(1))
 chipmunk_funGetGlobal(x::Int64) = chipmunk_usedGlobal
 chipmunk_funAddGlobal(x::Int64) = x + chipmunk_usedGlobal
+@noinline chipmunk_funAddGlobalNoInline(x::Int64) = x + chipmunk_usedGlobal
+@noinline chipmunk_test4(x::Int64)::Int64 = x + chipmunk_usedGlobal
 chipmunk_funAddInitGlobal(x::Int64) = x + chipmunk_globalWithInit
 
 @noinline chipmunk_funOutPrecompiledGlobal(x::Int64) = chipmunk_usedGlobal

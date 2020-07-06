@@ -1302,6 +1302,8 @@ function compilecache(pkg::PkgId, path::String)
     # decide where to put the resulting cache file
     cachefile = compilecache_path(pkg)
     cachepath = dirname(cachefile)
+    println("cachefile: $cachefile")
+    println("cachepath: $cachepath")
     # prune the directory with cache files
     if pkg.uuid !== nothing
         entrypath, entryfile = cache_file_entry(pkg)
@@ -1328,7 +1330,9 @@ function compilecache(pkg::PkgId, path::String)
     local p
     try
         close(tmpio)
+        println("Before")
         p = create_expr_cache(path, tmppath, concrete_deps, pkg.uuid)
+        println("After")
         if success(p)
             # append checksum to the end of the .ji file:
             open(tmppath, "a+") do f
@@ -1339,11 +1343,14 @@ function compilecache(pkg::PkgId, path::String)
 
             # this is atomic according to POSIX:
             rename(tmppath, cachefile)
+
+            aname = tmppath * ".a"
+            sname = cachefile * ".so"
+            println("archive: $aname  lib: $sname  cachepath: $cachepath")
+            run(`ld -shared -fPIC -o $sname --whole-archive $aname`)
+
             return cachefile
         end
-        aname = cachefile * ".a"
-        sname = cachefile * ".so"
-        run(`ld -shared -fPIC -o $sname --whole-archive $aname`)
     finally
         rm(tmppath, force=true)
     end
