@@ -2099,6 +2099,7 @@ JL_DLLEXPORT void jl_init_restored_modules(jl_array_t *init_order)
 JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
 {
     JL_TIMING(SAVE_MODULE);
+    printf("jl_save_incremental() fname: %s\n", fname);
     char *aname = strcat(strcpy((char *) alloca(strlen(fname)+2), fname), ".a");
     char *tmpaname = strcat(strcpy((char *) alloca(strlen(fname)+8), fname), ".YYYYYY");
     ios_t f;
@@ -2454,6 +2455,14 @@ static void jl_link_shared_lib(const char *libpath)
 {
     size_t i = 0;
     void *lib = jl_dlopen(libpath, JL_RTLD_GLOBAL | JL_RTLD_DEEPBIND);
+
+    uintptr_t *tls_getter_slot;
+    jl_dlsym(lib, "jl_get_ptls_states_slot", (void **)&tls_getter_slot, 1);
+    *tls_getter_slot = (uintptr_t)jl_get_ptls_states_getter();
+    size_t *tls_offset_idx;
+    jl_dlsym(lib, "jl_tls_offset", (void **)&tls_offset_idx, 1);
+    *tls_offset_idx = (uintptr_t)(jl_tls_offset == -1 ? 0 : jl_tls_offset);
+
     while (i < natived_list.len) {
         jl_code_instance_t *codeinst = (jl_code_instance_t*)natived_list.items[i];
         if (codeinst->functionObject != jl_an_empty_string) {

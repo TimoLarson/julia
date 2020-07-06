@@ -296,6 +296,10 @@ extern "C" JL_DLLEXPORT
 void *jl_create_native(jl_array_t *methods, const jl_cgparams_t cgparams, int _policy, int force_native)
 {
     int compiling_native = 0;
+    if (force_native) {
+        jl_options.incremental = 1;
+        jl_options.outputji = "hi";
+    }
     if (force_native || jl_options.outputo || jl_options.outputbc || jl_options.outputunoptbc || jl_options.outputasm ||
             (jl_options.incremental && jl_options.outputji)) {
         compiling_native = 1;
@@ -705,7 +709,7 @@ void addOptimizationPasses(legacy::PassManagerBase *PM, int opt_level,
             PM->add(createGCInvariantVerifierPass(false));
             PM->add(createLateLowerGCFramePass());
             PM->add(createFinalLowerGCPass());
-            PM->add(createLowerPTLSPass(dump_native));
+            PM->add(createLowerPTLSPass(dump_native, jl_options.incremental && jl_options.outputji));
         }
         PM->add(createRemoveNIPass());
         PM->add(createLowerSimdLoopPass()); // Annotate loop marked with "loopinfo" as LLVM parallel loop
@@ -826,7 +830,7 @@ void addOptimizationPasses(legacy::PassManagerBase *PM, int opt_level,
         PM->add(createFinalLowerGCPass());
         // Remove dead use of ptls
         PM->add(createDeadCodeEliminationPass());
-        PM->add(createLowerPTLSPass(dump_native));
+        PM->add(createLowerPTLSPass(dump_native, jl_options.incremental && jl_options.outputji));
         // Clean up write barrier and ptls lowering
         PM->add(createCFGSimplificationPass());
     }

@@ -44,6 +44,8 @@ Base.chipmunk_funLiteral(Int64(1))
 Base.chipmunk_funAddLiteral(Int64(1))
 Base.chipmunk_funGetGlobal(Int64(1))
 Base.chipmunk_funAddGlobal(Int64(1))
+Base.chipmunk_funAddGlobalNoInline(Int64(1))
+Base.chipmunk_test4(Int64(1))
 Base.chipmunk_funAddInitGlobal(Int64(1))
 println(Int64(1))
 # ]]] Precompile statements for debugging
