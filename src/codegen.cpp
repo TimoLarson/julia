@@ -2591,6 +2591,7 @@ static bool emit_builtin_call(jl_codectx_t &ctx, jl_cgval_t *ret, jl_value_t *f,
                 nva = ctx.builder.CreateTrunc(nva, T_int32);
 #endif
                 Value *theArgs = ctx.builder.CreateInBoundsGEP(T_prjlvalue, ctx.argArray, ConstantInt::get(T_size, ctx.nReqArgs));
+                //printf("emit_builtin_call\n");
                 Value *r = ctx.builder.CreateCall(prepare_call(jlapplygeneric_func), { theF, theArgs, nva });
                 *ret = mark_julia_type(ctx, r, true, jl_any_type);
                 return true;
@@ -3120,6 +3121,10 @@ static bool emit_builtin_call(jl_codectx_t &ctx, jl_cgval_t *ret, jl_value_t *f,
     return false;
 }
 
+int debug_chipmunk = 0;
+
+extern "C" void jl_dump_llvm_value(void *v);
+
 static CallInst *emit_jlcall(jl_codectx_t &ctx, Function *theFptr, Value *theF,
                              jl_cgval_t *argv, size_t nargs, CallingConv::ID cc)
 {
@@ -3132,6 +3137,19 @@ static CallInst *emit_jlcall(jl_codectx_t &ctx, Function *theFptr, Value *theF,
     }
     for (size_t i = 0; i < nargs; i++) {
         Value *arg = maybe_decay_untracked(boxed(ctx, argv[i]));
+        if (debug_chipmunk >= 2) {
+            auto c = argv[i];
+            fprintf(stderr, "====\n");
+            fprintf(stderr, "arg[%li] V=%p Vboxed=%p\n", i, (void*)argv[i].V, (void*)argv[i].Vboxed);
+            if (argv[i].V != NULL) { fprintf(stderr, "V="); jl_dump_llvm_value(argv[i].V); }
+            if (argv[i].Vboxed != NULL) { fprintf(stderr, "Vboxed="); jl_dump_llvm_value(argv[i].Vboxed); }
+            fprintf(stderr, "constant="); jl_(c.constant);
+            fprintf(stderr, "typ=%p=", (void*)c.typ); jl_(c.typ);
+            fprintf(stderr, "isboxed=%d\n", c.isboxed);
+            fprintf(stderr, "isghost=%d\n", c.isghost);
+            fprintf(stderr, "tbaa=%p  nullptr=%p\n", (void*)c.tbaa, nullptr);
+            fprintf(stderr, "----\n");
+        }
         theArgs.push_back(arg);
         argsT.push_back(T_prjlvalue);
     }
@@ -3141,6 +3159,14 @@ static CallInst *emit_jlcall(jl_codectx_t &ctx, Function *theFptr, Value *theF,
         theArgs);
     add_return_attr(result, Attribute::NonNull);
     result->setCallingConv(cc);
+    if (debug_chipmunk >= 2) {
+        /*
+        printf(" %p\n", theFptr);
+        printf("> %p\n", FTy);
+        printf("-> %p\n", FTy->getPointerTo());
+        printf("--> %p\n", ctx.builder.CreateBitCast(theFptr, FTy->getPointerTo()));
+        */
+    }
     return result;
 }
 static CallInst *emit_jlcall(jl_codectx_t &ctx, JuliaFunction *theFptr, Value *theF,
@@ -3416,8 +3442,30 @@ static jl_cgval_t emit_call(jl_codectx_t &ctx, jl_expr_t *ex, jl_value_t *rt)
         }
     }
 
+    //printf("emit_call: ");
+    if (jl_is_globalref(args[0]) &&
+        !strcmp(jl_symbol_name(jl_globalref_mod(args[0])->name), "Main") &&
+        !strcmp(jl_symbol_name(jl_globalref_name(args[0])), "+")) {
+
+        printf("%s\n", jl_symbol_name(jl_globalref_mod(args[0])->name));
+        printf("%s\n", jl_symbol_name(jl_globalref_name(args[0])));
+        printf("%li %p \n", n_generic_args, (void*)generic_argv);
+        /*
+        for (unsigned long int i = 0; i < n_generic_args; i++)
+            printf(" %p", generic_argv[i]);
+        printf("\n");
+        */
+        debug_chipmunk += 1;
+    }
+    //jl_(args[0]);
     // emit function and arguments
     Value *callval = emit_jlcall(ctx, jlapplygeneric_func, nullptr, generic_argv, n_generic_args, JLCALL_F_CC);
+    if (jl_is_globalref(args[0]) &&
+        !strcmp(jl_symbol_name(jl_globalref_mod(args[0])->name), "Main") &&
+        !strcmp(jl_symbol_name(jl_globalref_name(args[0])), "+")) {
+
+        debug_chipmunk -= 1;
+    }
     return mark_julia_type(ctx, callval, true, rt);
 }
 
@@ -4875,6 +4923,7 @@ static Function* gen_cfun_wrapper(
             ctx.builder.CreateBr(b_after);
             ctx.builder.SetInsertPoint(b_generic);
         }
+        //printf("gen_cfun_wrapper\n");
         Value *ret = emit_jlcall(ctx, jlapplygeneric_func, NULL, inputargs, nargs + 1, JLCALL_F_CC);
         if (age_ok) {
             ctx.builder.CreateBr(b_after);

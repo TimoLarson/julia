@@ -1,5 +1,7 @@
 // This file is a part of Julia. License is MIT: https://julialang.org/license
 
+extern int debug_chipmunk;
+
 // utility procedures used in code generation
 
 static Instruction *tbaa_decorate(MDNode *md, Instruction *load_or_store)
@@ -391,8 +393,14 @@ static inline Instruction *maybe_mark_load_dereferenceable(Instruction *LI, bool
     return maybe_mark_load_dereferenceable(LI, can_be_null, size, alignment);
 }
 
+extern "C" void jl_dump_llvm_value(void *v);
+
 static Value *literal_pointer_val(jl_codectx_t &ctx, jl_value_t *p)
 {
+    if (debug_chipmunk >= 2) {
+        fprintf(stderr, "\n--> hi jl_value_t: %p <--\n", (void*)p);
+        jl_dump_llvm_value(p);
+    }
     if (p == NULL)
         return V_null;
     if (!imaging_mode)
@@ -405,6 +413,9 @@ static Value *literal_pointer_val(jl_codectx_t &ctx, jl_value_t *p)
 
 static Value *literal_pointer_val(jl_codectx_t &ctx, jl_binding_t *p)
 {
+    if (debug_chipmunk >= 2) {
+        fprintf(stderr, "\n\n--> hi binding <--\n\n");
+    }
     // emit a pointer to any jl_value_t which will be valid across reloading code
     if (p == NULL)
         return V_null;
@@ -2410,6 +2421,9 @@ static Value *box_union(jl_codectx_t &ctx, const jl_cgval_t &vinfo, const SmallB
 // if it's already a pointer it's left alone.
 static Value *boxed(jl_codectx_t &ctx, const jl_cgval_t &vinfo)
 {
+    if (debug_chipmunk >= 2) {
+        fprintf(stderr, "\n--> hi boxed <--\n");
+    }
     jl_value_t *jt = vinfo.typ;
     if (jt == jl_bottom_type || jt == NULL)
         // We have an undef value on a (hopefully) dead branch

@@ -474,10 +474,15 @@ void *jl_create_native(jl_array_t *methods, const jl_cgparams_t cgparams, int _p
     return (void*)data;
 }
 
+extern int debug_chipmunk;
+
 extern "C" JL_DLLEXPORT
 void *jl_simple_create_native(jl_array_t *method_instances)
 {
-    return jl_create_native(method_instances, jl_default_cgparams, 0, 1);
+    debug_chipmunk++;
+    void *p = jl_create_native(method_instances, jl_default_cgparams, 0, 1);
+    debug_chipmunk--;
+    return p;
 }
 
 static void emit_result(std::vector<NewArchiveMember> &Archive, SmallVectorImpl<char> &OS,
