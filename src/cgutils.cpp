@@ -1,6 +1,11 @@
 // This file is a part of Julia. License is MIT: https://julialang.org/license
 
+extern int libmode;
+
 extern int debug_chipmunk;
+void chipmunk_error_begin(const char *function_name, const char *fmt, ...);
+void chipmunk_error_msg(const char *function_name, const char *fmt, ...);
+void chipmunk_error_end(const char *function_name, const char *fmt, ...);
 
 // utility procedures used in code generation
 
@@ -235,6 +240,8 @@ static Value *julia_pgv(jl_codectx_t &ctx, const char *cname, void *addr)
     Module *M = jl_Module;
     StringRef localname;
     std::string gvname;
+    StringRef externname;
+    std::string gvgotname;
     if (!gv) {
         raw_string_ostream(gvname) << cname << ctx.global_targets.size();
         localname = StringRef(gvname);
@@ -244,10 +251,19 @@ static Value *julia_pgv(jl_codectx_t &ctx, const char *cname, void *addr)
         if (gv->getParent() != M)
             gv = cast_or_null<GlobalVariable>(M->getNamedValue(localname));
     }
-    if (gv == nullptr)
+    if (gv == nullptr) {
         gv = new GlobalVariable(*M, T_pjlvalue,
                                 false, GlobalVariable::PrivateLinkage,
                                 NULL, localname);
+        // FIXME: Determine criteria for which GlobalVariables can have an alias with ExternalLinkage
+        if (strstr(cname, "chipmunk")) {
+            raw_string_ostream(gvgotname) << cname << ".got" << ctx.global_targets.size();
+            externname = StringRef(gvgotname);
+            printf("Create External GV for (%s): %s\n", cname, externname.str().c_str());
+            GlobalAlias::create(T_pjlvalue, 0, GlobalVariable::ExternalLinkage,
+                                           externname, gv, M);
+        }
+    }
     assert(localname == gv->getName());
     assert(!gv->hasInitializer());
     return gv;
@@ -284,8 +300,11 @@ static Value *julia_pgv(jl_codectx_t &ctx, const char *prefix, jl_sym_t *name, j
 static JuliaVariable *julia_const_gv(jl_value_t *val);
 static Value *literal_pointer_val_slot(jl_codectx_t &ctx, jl_value_t *p)
 {
+    if (debug_chipmunk >= 2) chipmunk_error_begin("literal_pointer_val_slot", "jl_value_t: %p   imaging_mode: %i  lib_mode: %i\n",
+        (void*)p, imaging_mode, libmode);
     // emit a pointer to a jl_value_t* which will allow it to be valid across reloading code
     // also, try to give it a nice name for gdb, for easy identification
+    //if (!imaging_mode && !libmode) {
     if (!imaging_mode) {
         // TODO: this is an optimization, but is it useful or premature
         // (it'll block any attempt to cache these, but can be simply deleted)
@@ -294,35 +313,50 @@ static Value *literal_pointer_val_slot(jl_codectx_t &ctx, jl_value_t *p)
                 *M, T_pjlvalue, true, GlobalVariable::PrivateLinkage,
                 literal_static_pointer_val(p));
         gv->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+        if (debug_chipmunk >= 2) chipmunk_error_end("literal_pointer_val_slot", "!imaging_mode && !libmode\n");
         return gv;
     }
     if (JuliaVariable *gv = julia_const_gv(p)) {
         // if this is a known special object, use the existing GlobalValue
-        return prepare_global_in(jl_Module, gv);
+        auto x = prepare_global_in(jl_Module, gv);
+        if (debug_chipmunk >= 2) chipmunk_error_end("literal_pointer_val_slot", "julia_const_gv\n");
+        return x;
     }
     if (jl_is_datatype(p)) {
         jl_datatype_t *addr = (jl_datatype_t*)p;
         // DataTypes are prefixed with a +
-        return julia_pgv(ctx, "+", addr->name->name, addr->name->module, p);
+        auto x = julia_pgv(ctx, "+", addr->name->name, addr->name->module, p);
+        if (debug_chipmunk >= 2) chipmunk_error_end("literal_pointer_val_slot", "jl_is_datatype\n");
+        return x;
     }
     if (jl_is_method(p)) {
         jl_method_t *m = (jl_method_t*)p;
         // functions are prefixed with a -
-        return julia_pgv(ctx, "-", m->name, m->module, p);
+        auto x = julia_pgv(ctx, "-", m->name, m->module, p);
+        if (debug_chipmunk >= 2) chipmunk_error_end("literal_pointer_val_slot", "jl_is_method\n");
+        return x;
     }
     if (jl_is_method_instance(p)) {
         jl_method_instance_t *linfo = (jl_method_instance_t*)p;
         // Type-inferred functions are also prefixed with a -
-        if (jl_is_method(linfo->def.method))
-            return julia_pgv(ctx, "-", linfo->def.method->name, linfo->def.method->module, p);
+        if (jl_is_method(linfo->def.method)) {
+            auto x = julia_pgv(ctx, "-", linfo->def.method->name, linfo->def.method->module, p);
+            if (debug_chipmunk >= 2) chipmunk_error_end("literal_pointer_val_slot", "jl_is_method_instance\n");
+            return x;
+        }
     }
     if (jl_is_symbol(p)) {
         jl_sym_t *addr = (jl_sym_t*)p;
         // Symbols are prefixed with jl_sym#
-        return julia_pgv(ctx, "jl_sym#", addr, NULL, p);
+        auto x = julia_pgv(ctx, "jl_sym#", addr, NULL, p);
+        if (debug_chipmunk >= 2) chipmunk_error_end("literal_pointer_val_slot", "jl_is_symbol\n");
+        return x;
     }
+    
     // something else gets just a generic name
-    return julia_pgv(ctx, "jl_global#", p);
+    auto x = julia_pgv(ctx, "jl_global#", p);
+    if (debug_chipmunk >= 2) chipmunk_error_end("literal_pointer_val_slot", "other\n");
+    return x;
 }
 
 static size_t dereferenceable_size(jl_value_t *jt)
@@ -398,14 +432,21 @@ extern "C" void jl_dump_llvm_value(void *v);
 static Value *literal_pointer_val(jl_codectx_t &ctx, jl_value_t *p)
 {
     if (debug_chipmunk >= 2) {
-        fprintf(stderr, "\n--> hi jl_value_t: %p <--\n", (void*)p);
-        jl_dump_llvm_value(p);
+        chipmunk_error_begin("literal_pointer_val", "jl_value_t: %p   imaging_mode: %i  lib_mode: %i\n",
+            (void*)p, imaging_mode, libmode);
+        //jl_dump_llvm_value(p);
     }
-    if (p == NULL)
+    if (p == NULL) {
+        if (debug_chipmunk >= 2) chipmunk_error_end("literal_pointer_val", "if null\n");
         return V_null;
-    if (!imaging_mode)
-        return literal_static_pointer_val(p);
+    }
+    if (!imaging_mode && !libmode) {
+        auto x = literal_static_pointer_val(p);
+        if (debug_chipmunk >= 2) chipmunk_error_end("literal_pointer_val", "if !imaging_mode\n");
+        return x;
+    }
     Value *pgv = literal_pointer_val_slot(ctx, p);
+    if (debug_chipmunk >= 2) chipmunk_error_end("literal_pointer_val", "else val slot\n");
     return tbaa_decorate(tbaa_const, maybe_mark_load_dereferenceable(
             ctx.builder.CreateAlignedLoad(T_pjlvalue, pgv, sizeof(void*)),
             false, jl_typeof(p)));
@@ -413,9 +454,8 @@ static Value *literal_pointer_val(jl_codectx_t &ctx, jl_value_t *p)
 
 static Value *literal_pointer_val(jl_codectx_t &ctx, jl_binding_t *p)
 {
-    if (debug_chipmunk >= 2) {
-        fprintf(stderr, "\n\n--> hi binding <--\n\n");
-    }
+    if (debug_chipmunk >= 2) chipmunk_error_begin("literal_pointer_val", "binding\n");
+    if (debug_chipmunk >= 2) chipmunk_error_end("literal_pointer_val", "binding\n");
     // emit a pointer to any jl_value_t which will be valid across reloading code
     if (p == NULL)
         return V_null;
@@ -2421,19 +2461,39 @@ static Value *box_union(jl_codectx_t &ctx, const jl_cgval_t &vinfo, const SmallB
 // if it's already a pointer it's left alone.
 static Value *boxed(jl_codectx_t &ctx, const jl_cgval_t &vinfo)
 {
-    if (debug_chipmunk >= 2) {
-        fprintf(stderr, "\n--> hi boxed <--\n");
-    }
+    if (debug_chipmunk >= 2) chipmunk_error_begin("boxed", "\n");
     jl_value_t *jt = vinfo.typ;
-    if (jt == jl_bottom_type || jt == NULL)
+    if (jt == jl_bottom_type || jt == NULL) {
         // We have an undef value on a (hopefully) dead branch
-        return UndefValue::get(T_prjlvalue);
-    if (vinfo.constant)
-        return maybe_decay_untracked(literal_pointer_val(ctx, vinfo.constant));
+        auto x =UndefValue::get(T_prjlvalue);
+        if (debug_chipmunk >= 2) chipmunk_error_end("boxed", "\n");
+        return x;
+    }
+    if (vinfo.constant) {
+        /*
+        if (libmode) {
+            GlobalVariable *gv = julia_pgv(ctx, "bob", vinfo.constant);
+            Module *M = jl_Module;
+            GlobalVariable *gv_got = new GlobalVariable(*M, T_pjlvalue,
+                                    true, GlobalVariable::PrivateLinkage,
+                                    gv, "bob.got");
+            gv_got->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+            if (debug_chipmunk >= 2) chipmunk_error_end("boxed", "GlobalVariable  constant  vinfo.constant=%p\n", (void*)(vinfo.constant));
+            return (Value*)gv_got;
+        }
+        */
+        auto x = maybe_decay_untracked(literal_pointer_val(ctx, vinfo.constant));
+        if (debug_chipmunk >= 2) chipmunk_error_end("boxed", "constant  vinfo.constant=%p\n", (void*)(vinfo.constant));
+        return x;
+    }
     // This can happen in early bootstrap for `gc_preserve_begin` return value.
-    if (jt == (jl_value_t*)jl_nothing_type)
-        return maybe_decay_untracked(literal_pointer_val(ctx, jl_nothing));
+    if (jt == (jl_value_t*)jl_nothing_type) {
+        auto x = maybe_decay_untracked(literal_pointer_val(ctx, jl_nothing));
+        if (debug_chipmunk >= 2) chipmunk_error_end("boxed", "jl_nothing_type\n");
+        return x;
+    }
     if (vinfo.isboxed) {
+        if (debug_chipmunk >= 2) chipmunk_error_end("boxed", "isboxed\n");
         assert(vinfo.V == vinfo.Vboxed);
         return vinfo.V;
     }
@@ -2457,6 +2517,7 @@ static Value *boxed(jl_codectx_t &ctx, const jl_cgval_t &vinfo)
             box = maybe_decay_untracked(box);
         }
     }
+    if (debug_chipmunk >= 2) chipmunk_error_end("boxed", "last else\n");
     return box;
 }
 

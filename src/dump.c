@@ -2451,17 +2451,22 @@ static void jl_recache_other(void)
     flagref_list.len = 0;
 }
 
-static void jl_link_shared_lib(const char *libpath)
-{
-    size_t i = 0;
-    void *lib = jl_dlopen(libpath, JL_RTLD_GLOBAL | JL_RTLD_DEEPBIND);
-
+JL_DLLEXPORT
+void jl_link_ptls(void *lib) {
     uintptr_t *tls_getter_slot;
     jl_dlsym(lib, "jl_get_ptls_states_slot", (void **)&tls_getter_slot, 1);
     *tls_getter_slot = (uintptr_t)jl_get_ptls_states_getter();
     size_t *tls_offset_idx;
     jl_dlsym(lib, "jl_tls_offset", (void **)&tls_offset_idx, 1);
     *tls_offset_idx = (uintptr_t)(jl_tls_offset == -1 ? 0 : jl_tls_offset);
+}
+
+static void jl_link_shared_lib(const char *libpath)
+{
+    size_t i = 0;
+    void *lib = jl_dlopen(libpath, JL_RTLD_GLOBAL | JL_RTLD_DEEPBIND);
+
+    jl_link_ptls(lib);
 
     while (i < natived_list.len) {
         jl_code_instance_t *codeinst = (jl_code_instance_t*)natived_list.items[i];

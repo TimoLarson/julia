@@ -293,10 +293,10 @@ bool LowerPTLS::runOnModule(Module &_M)
         assert(call->getCalledValue() == ptls_getter);
         fix_ptls_use(call);
     }
-    if (!lib_mode) {
+    //if (!lib_mode) {
         assert(ptls_getter->use_empty());
         ptls_getter->eraseFromParent();
-    }
+    //}
     return true;
 }
 

@@ -57,6 +57,8 @@
 #include <llvm/Transforms/Utils/Cloning.h>
 
 
+int libmode = 0;
+
 using namespace llvm;
 
 // our passes
@@ -295,6 +297,10 @@ static void jl_ci_cache_lookup(const jl_cgparams_t &cgparams, jl_method_instance
 extern "C" JL_DLLEXPORT
 void *jl_create_native(jl_array_t *methods, const jl_cgparams_t cgparams, int _policy, int force_native)
 {
+    FILE *log = fopen("log.txt", "a");
+    fprintf(log, "jl_create_native:\n");
+    fprintf(log, "    jl_options.incremental: %i  jl_options.outputji: %s\n", jl_options.incremental, jl_options.outputji);
+
     int compiling_native = 0;
     if (force_native) {
         jl_options.incremental = 1;
@@ -304,6 +310,20 @@ void *jl_create_native(jl_array_t *methods, const jl_cgparams_t cgparams, int _p
             (jl_options.incremental && jl_options.outputji)) {
         compiling_native = 1;
     }
+
+    /*
+    char cwd[1024];
+    getcwd(cwd, sizeof(cwd));
+    printf("Current working dir: %s\n", cwd);
+    */
+
+    fprintf(log, "    force_native: %i  compiling_native: %i\n", force_native, compiling_native);
+    fprintf(log, "    _policy: %i  imaging_mode %i  libmode %i\n", _policy, imaging_mode, libmode);
+    fprintf(log, "    %i %i %i %i %i %i\n",
+            cgparams.track_allocations, cgparams.code_coverage, cgparams.static_alloc, cgparams.prefer_specsig, cgparams.gnu_pubnames, cgparams.debug_info_kind);
+    fprintf(log, "    jl_options.incremental: %i  jl_options.outputji: %s\n", jl_options.incremental, jl_options.outputji);
+    fprintf(log, "    num methods: %li\n", jl_array_len(methods));
+    fclose(log);
 
     jl_native_code_desc_t *data = new jl_native_code_desc_t;
     jl_codegen_params_t params;
@@ -480,7 +500,10 @@ extern "C" JL_DLLEXPORT
 void *jl_simple_create_native(jl_array_t *method_instances)
 {
     debug_chipmunk++;
+    int old_libmode = libmode;
+    libmode = 1;
     void *p = jl_create_native(method_instances, jl_default_cgparams, 0, 1);
+    libmode = old_libmode;
     debug_chipmunk--;
     return p;
 }

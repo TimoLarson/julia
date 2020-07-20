@@ -81,6 +81,8 @@
 #endif
 #include <llvm/Target/TargetMachine.h>
 
+extern int libmode;
+
 using namespace llvm;
 
 typedef Instruction TerminatorInst;
@@ -143,6 +145,63 @@ extern void _chkstk(void);
 
 // llvm state
 extern JITEventListener *CreateJuliaJITEventListener();
+
+int debug_chipmunk = 0;
+int level_chipmunk = 0;
+
+int output_chipmunk = 0;
+
+void chipmunk_error_begin(const char *function_name, const char *fmt, ...) {
+if (output_chipmunk) {
+    FILE *f = fopen("../chipmunk.log", "a");
+    for (int i = 0; i < level_chipmunk; i++) {
+        fprintf(f, "    ");
+    }
+    fprintf(f, ">%s|  ", function_name);
+
+    va_list myargs;
+    va_start(myargs, fmt);
+    vfprintf(f, fmt, myargs);
+    va_end(myargs);
+
+    fclose(f);
+    level_chipmunk++;
+}
+}
+
+void chipmunk_error_msg(const char *function_name, const char *fmt, ...) {
+if (output_chipmunk) {
+    FILE *f = fopen("../chipmunk.log", "a");
+    for (int i = 0; i < level_chipmunk - 1; i++) {
+        fprintf(f, "    ");
+    }
+    fprintf(f, " %s|  ", function_name);
+
+    va_list myargs;
+    va_start(myargs, fmt);
+    vfprintf(f, fmt, myargs);
+    va_end(myargs);
+    fclose(f);
+}
+}
+
+void chipmunk_error_end(const char *function_name, const char *fmt, ...) {
+if (output_chipmunk) {
+    FILE *f = fopen("../chipmunk.log", "a");
+    level_chipmunk--;
+
+    for (int i = 0; i < level_chipmunk; i++) {
+        fprintf(f, "    ");
+    }
+    fprintf(f, "<%s|  ", function_name);
+
+    va_list myargs;
+    va_start(myargs, fmt);
+    vfprintf(f, fmt, myargs);
+    va_end(myargs);
+    fclose(f);
+}
+}
 
 // for image reloading
 bool imaging_mode = false;
@@ -302,13 +361,24 @@ public:
     JuliaFunction(const JuliaFunction&) = delete;
     JuliaFunction(const JuliaFunction&&) = delete;
     Function *realize(Module *m) {
-        if (GlobalValue *V = m->getNamedValue(name))
+        if (GlobalValue *V = m->getNamedValue(name)) {
+            if (debug_chipmunk >= 2) {
+                chipmunk_error_begin("JuliaFunction.realize", "Found function %s %p in module: %s\n",
+                    name.str().c_str(), (void*)V, m->getModuleIdentifier().c_str());
+                chipmunk_error_end("JuliaFunction.realize", "");
+            }
             return cast<Function>(V);
+        }
         Function *F = Function::Create(_type(m->getContext()),
                          Function::ExternalLinkage,
                          name, m);
         if (_attrs)
             F->setAttributes(_attrs(m->getContext()));
+        if (debug_chipmunk >= 2) {
+            chipmunk_error_begin("JuliaFunction.realize", "Created function %s %p in module: %s\n",
+                name.str().c_str(), (void*)F, m->getModuleIdentifier().c_str());
+            chipmunk_error_end("JuliaFunction.realize", "");
+        }
         return F;
     }
     Function *realize(jl_codectx_t &ctx);
@@ -1068,12 +1138,20 @@ static Instruction *tbaa_decorate(MDNode *md, Instruction *load_or_store);
 
 static GlobalVariable *prepare_global_in(Module *M, JuliaVariable *G)
 {
-    return G->realize(M);
+    if (debug_chipmunk >= 2) chipmunk_error_begin("prepare_global_in(JuliaVariable)", "\n");
+    //return G->realize(M);
+    auto x = G->realize(M);
+    if (debug_chipmunk >= 2) chipmunk_error_end("prepare_global_in(JuliaVariable)", "\n");
+    return x;
 }
 
 static Function *prepare_call_in(Module *M, JuliaFunction *G)
 {
-    return G->realize(M);
+    if (debug_chipmunk >= 2) chipmunk_error_begin("prepare_global_in(JuliaFunction)", "\n");
+    //return G->realize(M);
+    auto x = G->realize(M);
+    if (debug_chipmunk >= 2) chipmunk_error_end("prepare_global_in(JuliaFunction)", "\n");
+    return x;
 }
 
 static inline GlobalVariable *prepare_global_in(Module *M, GlobalVariable *G)
@@ -2217,19 +2295,29 @@ static void jl_add_method_root(jl_codectx_t &ctx, jl_value_t *val)
 
 static jl_cgval_t emit_globalref(jl_codectx_t &ctx, jl_module_t *mod, jl_sym_t *name)
 {
+    if (debug_chipmunk >= 2) chipmunk_error_begin("emit_globalref", "%s.%s\n",
+        jl_symbol_name(mod->name), jl_symbol_name(name));
+
     jl_binding_t *bnd = NULL;
     Value *bp = global_binding_pointer(ctx, mod, name, &bnd, false);
     if (bnd && bnd->value != NULL) {
         if (bnd->constp) {
-            return mark_julia_const(bnd->value);
+            auto x = mark_julia_const(bnd->value);
+            if (debug_chipmunk >= 2) chipmunk_error_end("emit_globalref", "constp  binding->value: %p\n",
+                (void*)bnd->value);
+            return x;
         }
         LoadInst *v = ctx.builder.CreateAlignedLoad(T_prjlvalue, bp, sizeof(void*));
         v->setOrdering(AtomicOrdering::Unordered);
         tbaa_decorate(tbaa_binding, v);
-        return mark_julia_type(ctx, v, true, (jl_value_t*)jl_any_type);
+        auto x = mark_julia_type(ctx, v, true, (jl_value_t*)jl_any_type);
+        if (debug_chipmunk >= 2) chipmunk_error_end("emit_globalref", "value\n");
+        return x;
     }
     // todo: use type info to avoid undef check
-    return emit_checked_var(ctx, bp, name, false, tbaa_binding);
+    auto x = emit_checked_var(ctx, bp, name, false, tbaa_binding);
+    if (debug_chipmunk >= 2) chipmunk_error_end("emit_globalref", "else\n");
+    return x;
 }
 
 static jl_cgval_t emit_getfield(jl_codectx_t &ctx, const jl_cgval_t &strct, jl_sym_t *name)
@@ -3121,13 +3209,12 @@ static bool emit_builtin_call(jl_codectx_t &ctx, jl_cgval_t *ret, jl_value_t *f,
     return false;
 }
 
-int debug_chipmunk = 0;
-
 extern "C" void jl_dump_llvm_value(void *v);
 
 static CallInst *emit_jlcall(jl_codectx_t &ctx, Function *theFptr, Value *theF,
                              jl_cgval_t *argv, size_t nargs, CallingConv::ID cc)
 {
+    if (debug_chipmunk >= 2) chipmunk_error_begin("emit_jlcall", "\n");
     // emit arguments
     SmallVector<Value*, 3> theArgs;
     SmallVector<Type*, 3> argsT;
@@ -3139,16 +3226,14 @@ static CallInst *emit_jlcall(jl_codectx_t &ctx, Function *theFptr, Value *theF,
         Value *arg = maybe_decay_untracked(boxed(ctx, argv[i]));
         if (debug_chipmunk >= 2) {
             auto c = argv[i];
-            fprintf(stderr, "====\n");
-            fprintf(stderr, "arg[%li] V=%p Vboxed=%p\n", i, (void*)argv[i].V, (void*)argv[i].Vboxed);
-            if (argv[i].V != NULL) { fprintf(stderr, "V="); jl_dump_llvm_value(argv[i].V); }
-            if (argv[i].Vboxed != NULL) { fprintf(stderr, "Vboxed="); jl_dump_llvm_value(argv[i].Vboxed); }
-            fprintf(stderr, "constant="); jl_(c.constant);
-            fprintf(stderr, "typ=%p=", (void*)c.typ); jl_(c.typ);
-            fprintf(stderr, "isboxed=%d\n", c.isboxed);
-            fprintf(stderr, "isghost=%d\n", c.isghost);
-            fprintf(stderr, "tbaa=%p  nullptr=%p\n", (void*)c.tbaa, nullptr);
-            fprintf(stderr, "----\n");
+            chipmunk_error_msg("emit_jlcall", "arg[%li] V=%p Vboxed=%p\n", i, (void*)argv[i].V, (void*)argv[i].Vboxed);
+            if (argv[i].V != NULL) { chipmunk_error_msg("emit_jl_call", "V="); jl_dump_llvm_value(argv[i].V); }
+            if (argv[i].Vboxed != NULL) { chipmunk_error_msg("emit_jl_call", "Vboxed="); jl_dump_llvm_value(argv[i].Vboxed); }
+            chipmunk_error_msg("emit_jlcall", "constant="); jl_(c.constant);
+            chipmunk_error_msg("emit_jlcall", "typ=%p=", (void*)c.typ); jl_(c.typ);
+            chipmunk_error_msg("emit_jlcall", "isboxed=%d\n", c.isboxed);
+            chipmunk_error_msg("emit_jlcall", "isghost=%d\n", c.isghost);
+            chipmunk_error_msg("emit_jlcall", "tbaa=%p  nullptr=%p\n", (void*)c.tbaa, nullptr);
         }
         theArgs.push_back(arg);
         argsT.push_back(T_prjlvalue);
@@ -3167,6 +3252,7 @@ static CallInst *emit_jlcall(jl_codectx_t &ctx, Function *theFptr, Value *theF,
         printf("--> %p\n", ctx.builder.CreateBitCast(theFptr, FTy->getPointerTo()));
         */
     }
+    if (debug_chipmunk >= 2) chipmunk_error_end("emit_jlcall", "");
     return result;
 }
 static CallInst *emit_jlcall(jl_codectx_t &ctx, JuliaFunction *theFptr, Value *theF,
@@ -3402,6 +3488,22 @@ static jl_cgval_t emit_call(jl_codectx_t &ctx, jl_expr_t *ex, jl_value_t *rt)
     jl_value_t **args = (jl_value_t**)jl_array_data(ex->args);
     size_t nargs = jl_array_dim0(ex->args);
     assert(nargs >= 1);
+    //printf("emit_call: ");
+    if (jl_is_globalref(args[0]) &&
+        !strcmp(jl_symbol_name(jl_globalref_mod(args[0])->name), "Main") &&
+        !strcmp(jl_symbol_name(jl_globalref_name(args[0])), "+")) {
+        debug_chipmunk += 1;
+    }
+
+    if (debug_chipmunk >= 2) chipmunk_error_begin("emit_call", "\n");
+    if (debug_chipmunk >= 2) chipmunk_error_msg("emit_call", "module name: %s\n", jl_symbol_name(jl_globalref_mod(args[0])->name));
+    if (debug_chipmunk >= 2) chipmunk_error_msg("emit_call", "symbol: %s\n", jl_symbol_name(jl_globalref_name(args[0])));
+    /*
+    for (unsigned long int i = 0; i < n_generic_args; i++)
+        printf(" %p", generic_argv[i]);
+    printf("\n");
+    */
+
     jl_cgval_t f = emit_expr(ctx, args[0]);
 
     if (f.constant && jl_typeis(f.constant, jl_intrinsic_type)) {
@@ -3414,6 +3516,7 @@ static jl_cgval_t emit_call(jl_codectx_t &ctx, jl_expr_t *ex, jl_value_t *rt)
 
     jl_cgval_t *generic_argv = (jl_cgval_t*)alloca(sizeof(jl_cgval_t) * n_generic_args);
     jl_cgval_t *argv = generic_argv;
+    if (debug_chipmunk >= 2) chipmunk_error_msg("emit_call", "context %p\n", (void*)context);
     if (context) {
         generic_argv[0] = mark_julia_const(context);
         argv = &generic_argv[1];
@@ -3442,21 +3545,8 @@ static jl_cgval_t emit_call(jl_codectx_t &ctx, jl_expr_t *ex, jl_value_t *rt)
         }
     }
 
-    //printf("emit_call: ");
-    if (jl_is_globalref(args[0]) &&
-        !strcmp(jl_symbol_name(jl_globalref_mod(args[0])->name), "Main") &&
-        !strcmp(jl_symbol_name(jl_globalref_name(args[0])), "+")) {
+    if (debug_chipmunk >= 2) chipmunk_error_end("emit_call", "num args: %li  arg array ptr: %p \n", n_generic_args, (void*)generic_argv);
 
-        printf("%s\n", jl_symbol_name(jl_globalref_mod(args[0])->name));
-        printf("%s\n", jl_symbol_name(jl_globalref_name(args[0])));
-        printf("%li %p \n", n_generic_args, (void*)generic_argv);
-        /*
-        for (unsigned long int i = 0; i < n_generic_args; i++)
-            printf(" %p", generic_argv[i]);
-        printf("\n");
-        */
-        debug_chipmunk += 1;
-    }
     //jl_(args[0]);
     // emit function and arguments
     Value *callval = emit_jlcall(ctx, jlapplygeneric_func, nullptr, generic_argv, n_generic_args, JLCALL_F_CC);
@@ -4133,6 +4223,11 @@ static void emit_stmtpos(jl_codectx_t &ctx, jl_value_t *expr, int ssaval_result)
 JL_GCC_IGNORE_START("-Wclobbered")
 static jl_cgval_t emit_expr(jl_codectx_t &ctx, jl_value_t *expr, ssize_t ssaval)
 {
+    if (debug_chipmunk >= 2) {
+        chipmunk_error_begin("emit_expr", "expr:\n");
+        fprintf(stderr, "#### expr:\n");
+        jl_(expr);
+    }
     if (jl_is_symbol(expr)) {
         jl_sym_t *sym = (jl_sym_t*)expr;
         return emit_global(ctx, sym);
@@ -4145,14 +4240,20 @@ static jl_cgval_t emit_expr(jl_codectx_t &ctx, jl_value_t *expr, ssize_t ssaval)
         assert(idx >= 0);
         if (!ctx.ssavalue_assigned.at(idx)) {
             ctx.ssavalue_assigned.at(idx) = true; // (assignment, not comparison test)
-            return jl_cgval_t(); // dead code branch
+            auto x = jl_cgval_t(); // dead code branch
+            chipmunk_error_end("emit_expr", "jl_is_ssavalue dead code branch\n");
+            return x;
         }
         else {
-            return ctx.SAvalues.at(idx); // at this point, SAvalues[idx] actually contains the SAvalue
+            auto x = ctx.SAvalues.at(idx); // at this point, SAvalues[idx] actually contains the SAvalue
+            chipmunk_error_end("emit_expr", "jl_is_ssavalue\n");
+            return x;
         }
     }
     if (jl_is_globalref(expr)) {
-        return emit_globalref(ctx, jl_globalref_mod(expr), jl_globalref_name(expr));
+        auto x = emit_globalref(ctx, jl_globalref_mod(expr), jl_globalref_name(expr));
+        if (debug_chipmunk >= 2) chipmunk_error_end("emit_expr", "jl_is_globalref\n");
+        return x;
     }
     if (jl_is_linenode(expr)) {
         jl_error("LineNumberNode in value position");
