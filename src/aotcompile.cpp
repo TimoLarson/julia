@@ -698,6 +698,12 @@ void jl_dump_native(void *native_code,
 }
 
 extern "C" JL_DLLEXPORT
+void jl_lib_dump_native(void *native_code, const char *a_fname, const char *libimg_data, size_t libimg_len)
+{
+    jl_dump_native(native_code, NULL, NULL, NULL, NULL, a_fname, libimg_data, libimg_len);
+}
+
+extern "C" JL_DLLEXPORT
 void jl_simple_dump_native(void *native_code, const char *a_fname)
 {
     jl_dump_native(native_code, NULL, NULL, NULL, NULL, a_fname, NULL, 0);
